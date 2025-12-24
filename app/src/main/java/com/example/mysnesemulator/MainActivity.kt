@@ -38,14 +38,9 @@ class MainActivity : AppCompatActivity() {
         setupWebView()
         setupControls()
 
-        // Usamos um botão invisível ou um clique longo no Select para abrir arquivos, 
-        // ou você pode adicionar um botão de menu. Por enquanto, mantive o FAB.
         binding.fabLoadRom.setOnClickListener {
             filePickerLauncher.launch("*/*")
         }
-        
-        // Exibe o FAB brevemente para carregar o jogo
-        binding.fabLoadRom.visibility = View.VISIBLE
     }
 
     @SuppressLint("SetJavaScriptEnabled", "ClickableViewAccessibility")
@@ -60,7 +55,7 @@ class MainActivity : AppCompatActivity() {
             settings.allowFileAccess = true
             settings.mediaPlaybackRequiresUserGesture = false
             
-            // OTIMIZAÇÃO E LIMPEZA DE CACHE
+            // Performance
             clearCache(true)
             settings.cacheMode = WebSettings.LOAD_NO_CACHE 
             settings.setRenderPriority(WebSettings.RenderPriority.HIGH)
@@ -69,13 +64,7 @@ class MainActivity : AppCompatActivity() {
             isVerticalScrollBarEnabled = false
             isHorizontalScrollBarEnabled = false
             
-            webChromeClient = object : WebChromeClient() {
-                override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
-                    android.util.Log.d("WebView", consoleMessage?.message() ?: "")
-                    return true
-                }
-            }
-            
+            webChromeClient = WebChromeClient()
             webViewClient = object : WebViewClient() {
                 override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?) 
                     = assetLoader.shouldInterceptRequest(request!!.url)
@@ -103,15 +92,15 @@ class MainActivity : AppCompatActivity() {
         mapButton(binding.btnX, "X")
         mapButton(binding.btnY, "Y")
         
-        // Ombros (Novos)
+        // Ombros
         mapButton(binding.btnL, "L")
         mapButton(binding.btnR, "R")
         
-        // Menu
+        // Sistema
         mapButton(binding.btnStart, "START")
         mapButton(binding.btnSelect, "SELECT")
 
-        // Save e Load State (Comandos especiais, não teclas)
+        // Botões de Estado (Não usam MotionEvent, apenas clique simples)
         binding.btnSaveState.setOnClickListener {
             binding.webView.evaluateJavascript("triggerSaveState();", null)
         }
@@ -139,9 +128,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun loadRom(uri: Uri) {
-        // Esconde o botão de load para não atrapalhar o jogo
         binding.fabLoadRom.visibility = View.GONE
-        Toast.makeText(this, "Carregando ROM...", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Processando...", Toast.LENGTH_SHORT).show()
 
         lifecycleScope.launch(Dispatchers.IO) {
             try {
