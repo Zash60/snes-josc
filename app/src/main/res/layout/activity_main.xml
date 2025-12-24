@@ -7,6 +7,7 @@
     android:layout_height="match_parent"
     android:background="#000000">
 
+    <!-- TELA DO JOGO (Fundo) -->
     <WebView
         android:id="@+id/webView"
         android:layout_width="match_parent"
@@ -17,7 +18,8 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:layout_marginTop="10dp"
+        android:layout_marginTop="8dp"
+        android:elevation="10dp"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
@@ -28,7 +30,7 @@
             android:layout_height="35dp"
             android:text="SAVE"
             android:textSize="10sp"
-            android:backgroundTint="#990000FF"
+            android:backgroundTint="#AA0000FF"
             android:layout_marginEnd="8dp"/>
 
         <Button
@@ -37,10 +39,10 @@
             android:layout_height="35dp"
             android:text="LOAD"
             android:textSize="10sp"
-            android:backgroundTint="#9900AA00"/>
+            android:backgroundTint="#AA00AA00"/>
     </LinearLayout>
 
-    <!-- === ESQUERDA: D-PAD + L === -->
+    <!-- === OMBROS (L e R) === -->
     <Button
         android:id="@+id/btnL"
         android:layout_width="80dp"
@@ -49,37 +51,99 @@
         android:backgroundTint="#AA404040"
         android:layout_marginStart="16dp"
         android:layout_marginTop="16dp"
+        android:elevation="10dp"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <LinearLayout
-        android:id="@+id/dpadLayout"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+    <Button
+        android:id="@+id/btnR"
+        android:layout_width="80dp"
+        android:layout_height="50dp"
+        android:text="R"
+        android:backgroundTint="#AA404040"
+        android:layout_marginEnd="16dp"
+        android:layout_marginTop="16dp"
+        android:elevation="10dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <!-- === D-PAD DESLIZANTE (Área de Toque Única) === -->
+    <RelativeLayout
+        android:id="@+id/dpadContainer"
+        android:layout_width="180dp"
+        android:layout_height="180dp"
         android:layout_marginStart="16dp"
         android:layout_marginBottom="16dp"
-        android:orientation="vertical"
-        android:gravity="center"
+        android:background="@android:color/transparent"
+        android:elevation="10dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent">
-        
-        <Button android:id="@+id/btnUp" android:layout_width="60dp" android:layout_height="60dp" android:text="▲" android:backgroundTint="#80FFFFFF" android:textColor="#000" />
-        <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:orientation="horizontal">
-            <Button android:id="@+id/btnLeft" android:layout_width="60dp" android:layout_height="60dp" android:text="◄" android:backgroundTint="#80FFFFFF" android:textColor="#000" />
-            <View android:layout_width="60dp" android:layout_height="60dp" />
-            <Button android:id="@+id/btnRight" android:layout_width="60dp" android:layout_height="60dp" android:text="►" android:backgroundTint="#80FFFFFF" android:textColor="#000" />
-        </LinearLayout>
-        <Button android:id="@+id/btnDown" android:layout_width="60dp" android:layout_height="60dp" android:text="▼" android:backgroundTint="#80FFFFFF" android:textColor="#000" />
-    </LinearLayout>
 
-    <!-- === CENTRAL INFERIOR: SELECT/START + BOTÃO ROM === -->
+        <!-- Botões Visuais (Não clicáveis individualmente) -->
+        <Button
+            android:id="@+id/btnUp"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:text="▲"
+            android:backgroundTint="#80FFFFFF"
+            android:textColor="#000"
+            android:clickable="false" 
+            android:focusable="false"
+            android:layout_alignParentTop="true"
+            android:layout_centerHorizontal="true" />
+
+        <Button
+            android:id="@+id/btnDown"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:text="▼"
+            android:backgroundTint="#80FFFFFF"
+            android:textColor="#000"
+            android:clickable="false"
+            android:focusable="false"
+            android:layout_alignParentBottom="true"
+            android:layout_centerHorizontal="true" />
+
+        <Button
+            android:id="@+id/btnLeft"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:text="◄"
+            android:backgroundTint="#80FFFFFF"
+            android:textColor="#000"
+            android:clickable="false"
+            android:focusable="false"
+            android:layout_alignParentStart="true"
+            android:layout_centerVertical="true" />
+
+        <Button
+            android:id="@+id/btnRight"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:text="►"
+            android:backgroundTint="#80FFFFFF"
+            android:textColor="#000"
+            android:clickable="false"
+            android:focusable="false"
+            android:layout_alignParentEnd="true"
+            android:layout_centerVertical="true" />
+            
+        <!-- Centro vazio para referência -->
+        <View
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:layout_centerInParent="true" />
+    </RelativeLayout>
+
+
+    <!-- === MENU CENTRAL (Select, Start, Add ROM) === -->
     <LinearLayout
-        android:id="@+id/menuLayout"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginBottom="10dp"
         android:gravity="center"
         android:orientation="horizontal"
+        android:elevation="10dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
@@ -93,7 +157,7 @@
             android:backgroundTint="#90505050"
             android:layout_marginEnd="15dp"/>
 
-        <!-- BOTÃO ADICIONAR ROM (MINI e DISCRETO) -->
+        <!-- BOTÃO ADICIONAR ROM (MINI) -->
         <com.google.android.material.floatingactionbutton.FloatingActionButton
             android:id="@+id/fabLoadRom"
             android:layout_width="wrap_content"
@@ -115,30 +179,56 @@
             android:backgroundTint="#90505050"/>
     </LinearLayout>
 
-    <!-- === DIREITA: BOTÕES + R === -->
-    <Button
-        android:id="@+id/btnR"
-        android:layout_width="80dp"
-        android:layout_height="50dp"
-        android:text="R"
-        android:backgroundTint="#AA404040"
-        android:layout_marginEnd="16dp"
-        android:layout_marginTop="16dp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
-
+    <!-- === BOTÕES DE AÇÃO (Direita) === -->
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="190dp"
         android:layout_height="190dp"
         android:layout_marginEnd="10dp"
         android:layout_marginBottom="16dp"
+        android:elevation="10dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
-        <Button android:id="@+id/btnX" android:layout_width="60dp" android:layout_height="60dp" android:text="X" android:backgroundTint="#90FF0000" app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent" app:layout_constraintTop_toTopOf="parent" />
-        <Button android:id="@+id/btnY" android:layout_width="60dp" android:layout_height="60dp" android:text="Y" android:backgroundTint="#9000FF00" app:layout_constraintTop_toTopOf="parent" app:layout_constraintBottom_toBottomOf="parent" app:layout_constraintStart_toStartOf="parent" />
-        <Button android:id="@+id/btnA" android:layout_width="60dp" android:layout_height="60dp" android:text="A" android:backgroundTint="#900000FF" app:layout_constraintTop_toTopOf="parent" app:layout_constraintBottom_toBottomOf="parent" app:layout_constraintEnd_toEndOf="parent" />
-        <Button android:id="@+id/btnB" android:layout_width="60dp" android:layout_height="60dp" android:text="B" android:textColor="#000" android:backgroundTint="#90FFFF00" app:layout_constraintBottom_toBottomOf="parent" app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent" />
+        <Button
+            android:id="@+id/btnX"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:text="X"
+            android:backgroundTint="#90FF0000"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <Button
+            android:id="@+id/btnY"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:text="Y"
+            android:backgroundTint="#9000FF00"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent" />
+
+        <Button
+            android:id="@+id/btnA"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:text="A"
+            android:backgroundTint="#900000FF"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <Button
+            android:id="@+id/btnB"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:text="B"
+            android:textColor="#000"
+            android:backgroundTint="#90FFFF00"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
     </androidx.constraintlayout.widget.ConstraintLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
