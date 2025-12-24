@@ -1,24 +1,162 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout 
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@android:color/black">
 
-    <!-- WebView onde o emulador roda -->
+    <!-- WebView (Game Screen) -->
     <WebView
         android:id="@+id/webView"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
-    <!-- Botão para carregar a ROM -->
+    <!-- D-PAD (Esquerda) -->
+    <LinearLayout
+        android:id="@+id/dpadLayout"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="24dp"
+        android:layout_marginBottom="24dp"
+        android:orientation="vertical"
+        android:gravity="center"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
+
+        <Button
+            android:id="@+id/btnUp"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:text="▲"
+            android:backgroundTint="#80FFFFFF"
+            android:textColor="#000000" />
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+            <Button
+                android:id="@+id/btnLeft"
+                android:layout_width="60dp"
+                android:layout_height="60dp"
+                android:text="◄"
+                android:backgroundTint="#80FFFFFF"
+                android:textColor="#000000" />
+            <View android:layout_width="60dp" android:layout_height="60dp" /> <!-- Espaço Centro -->
+            <Button
+                android:id="@+id/btnRight"
+                android:layout_width="60dp"
+                android:layout_height="60dp"
+                android:text="►"
+                android:backgroundTint="#80FFFFFF"
+                android:textColor="#000000" />
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/btnDown"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:text="▼"
+            android:backgroundTint="#80FFFFFF"
+            android:textColor="#000000" />
+    </LinearLayout>
+
+    <!-- Action Buttons (Direita) -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="180dp"
+        android:layout_height="180dp"
+        android:layout_marginEnd="24dp"
+        android:layout_marginBottom="40dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <Button
+            android:id="@+id/btnX"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:text="X"
+            android:backgroundTint="#80FF0000"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <Button
+            android:id="@+id/btnY"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:text="Y"
+            android:backgroundTint="#8000FF00"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent" />
+
+        <Button
+            android:id="@+id/btnA"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:text="A"
+            android:backgroundTint="#800000FF"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <Button
+            android:id="@+id/btnB"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:text="B"
+            android:backgroundTint="#80FFFF00"
+            android:textColor="#000"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <!-- Menu Buttons (Centro-Baixo) -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
+        android:orientation="horizontal"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toEndOf="@id/dpadLayout"
+        app:layout_constraintEnd_toStartOf="@id/fabLoadRom">
+        
+        <Button
+            android:id="@+id/btnSelect"
+            android:layout_width="70dp"
+            android:layout_height="40dp"
+            android:text="SEL"
+            android:textSize="10sp"
+            android:backgroundTint="#80808080"
+            android:layout_marginEnd="8dp"/>
+
+        <Button
+            android:id="@+id/btnStart"
+            android:layout_width="70dp"
+            android:layout_height="40dp"
+            android:text="STA"
+            android:textSize="10sp"
+            android:backgroundTint="#80808080"/>
+    </LinearLayout>
+
+    <!-- Load ROM Button (Topo-Direita) -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fabLoadRom"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="bottom|end"
+        android:layout_gravity="top|end"
         android:layout_margin="16dp"
         android:contentDescription="Load ROM"
-        app:srcCompat="@android:drawable/ic_input_add" />
+        app:srcCompat="@android:drawable/ic_input_add"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
 
-</FrameLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>
