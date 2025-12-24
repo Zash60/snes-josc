@@ -19,6 +19,7 @@ import com.example.mysnesemulator.databinding.ActivityMainBinding
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.InputStream
 
 class MainActivity : AppCompatActivity() {
 
@@ -37,36 +38,38 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Ativa modo tela cheia (esconde barra de status e navegação)
+        // Força tela cheia (Immersive Mode)
         hideSystemUI()
 
         setupWebView()
         setupControls()
 
         binding.fabLoadRom.setOnClickListener {
-            filePickerLauncher.launch("*/*") // Aceita qualquer extensão, filtro é feito visualmente
+            // Abre seletor de arquivos
+            filePickerLauncher.launch("*/*")
         }
     }
 
     @SuppressLint("SetJavaScriptEnabled", "ClickableViewAccessibility")
     private fun setupWebView() {
-        // Configura o loader para interceptar chamadas locais
+        // Configura AssetLoader para ler arquivos da pasta assets/
         assetLoader = WebViewAssetLoader.Builder()
             .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
             .build()
 
         binding.webView.apply {
-            // Configurações de Web
+            // Configurações críticas para WebGL e WASM
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
             settings.allowFileAccess = true
             settings.mediaPlaybackRequiresUserGesture = false
             
-            // Otimizações de Performance
-            settings.cacheMode = WebSettings.LOAD_NO_CACHE // Evita cache de versões antigas do HTML
-            setLayerType(View.LAYER_TYPE_HARDWARE, null) // Força GPU
+            // PERFORMANCE MÁXIMA
+            settings.cacheMode = WebSettings.LOAD_NO_CACHE
+            settings.setRenderPriority(WebSettings.RenderPriority.HIGH) // Prioridade Alta para CPU/GPU
+            setLayerType(View.LAYER_TYPE_HARDWARE, null) // Garante uso da GPU
 
-            // Configuração do Cliente Chrome (Logs)
+            // Cliente Chrome para logs
             webChromeClient = object : WebChromeClient() {
                 override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
                     android.util.Log.d("WebViewConsole", consoleMessage?.message() ?: "")
@@ -74,7 +77,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
-            // Configuração do Cliente WebView (Interceptação de Assets)
+            // Cliente WebView para interceptação local
             webViewClient = object : WebViewClient() {
                 override fun shouldInterceptRequest(
                     view: WebView?,
@@ -83,19 +86,18 @@ class MainActivity : AppCompatActivity() {
 
                 override fun onPageFinished(view: WebView?, url: String?) {
                     super.onPageFinished(view, url)
-                    // Re-aplica tela cheia caso o teclado tenha aparecido
-                    hideSystemUI()
+                    hideSystemUI() // Garante tela cheia após carregar
                 }
             }
 
-            // Carrega o index.html
+            // Carrega o arquivo HTML local
             loadUrl("https://appassets.androidplatform.net/assets/index.html")
         }
     }
 
     @SuppressLint("ClickableViewAccessibility")
     private fun setupControls() {
-        // Mapeamento dos botões da interface para comandos
+        // Mapeia botões da UI para strings de comando
         mapButton(binding.btnUp, "UP")
         mapButton(binding.btnDown, "DOWN")
         mapButton(binding.btnLeft, "LEFT")
@@ -115,7 +117,7 @@ class MainActivity : AppCompatActivity() {
         view.setOnTouchListener { v, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
-                    v.isPressed = true // Feedback visual nativo
+                    v.isPressed = true
                     sendInputToJs(keyName, true)
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
@@ -123,13 +125,12 @@ class MainActivity : AppCompatActivity() {
                     sendInputToJs(keyName, false)
                 }
             }
-            // Retorna true para indicar que consumimos o evento (evita scroll/zoom acidental)
-            true 
+            true // Consome o evento
         }
     }
 
     private fun sendInputToJs(key: String, isDown: Boolean) {
-        // Envia o comando JS instantaneamente
+        // Executa JS diretamente na WebView
         binding.webView.evaluateJavascript("androidButtonEvent('$key', $isDown);", null)
     }
 
@@ -137,12 +138,11 @@ class MainActivity : AppCompatActivity() {
         binding.fabLoadRom.isEnabled = false
         Toast.makeText(this, "Processando ROM...", Toast.LENGTH_SHORT).show()
 
-        // Usa Coroutines para não travar a UI durante a leitura do arquivo
+        // Executa leitura pesada em Thread separada (IO)
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val contentResolver = applicationContext.contentResolver
                 
-                // Tenta pegar o nome do arquivo
                 var fileName = "game.sfc"
                 contentResolver.query(uri, null, null, null, null)?.use { cursor ->
                     if (cursor.moveToFirst()) {
@@ -151,20 +151,19 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
 
-                // Lê os bytes do arquivo
-                val inputStream = contentResolver.openInputStream(uri)
+                val inputStream: InputStream? = contentResolver.openInputStream(uri)
                 val bytes = inputStream?.readBytes()
                 inputStream?.close()
 
                 if (bytes != null) {
-                    // Converte para Base64 (pode ser pesado, por isso estamos no IO)
+                    // Converte para Base64
                     val base64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
                     
+                    // Volta para Thread Principal para atualizar UI e JS
                     withContext(Dispatchers.Main) {
-                        // Injeta no JS na Thread Principal
                         binding.webView.evaluateJavascript("launchGame('$base64', '$fileName');") {
                             binding.fabLoadRom.isEnabled = true
-                            hideSystemUI() // Garante tela cheia ao começar
+                            hideSystemUI()
                         }
                     }
                 }
@@ -178,6 +177,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // Função para esconder barras de navegação (Android 11+ e antigos)
     private fun hideSystemUI() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             window.insetsController?.let {
