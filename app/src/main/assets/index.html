@@ -18,10 +18,10 @@
         }
         canvas#game-canvas {
             display: block;
-            max-width: 100vw;
-            max-height: 100vh;
-            object-fit: contain;
-            outline: none;
+            width: 100%; 
+            height: 100%;
+            object-fit: contain; /* Mantém aspect ratio */
+            image-rendering: pixelated; /* Performance visual */
         }
     </style>
     <!-- Nostalgist v0.19.1 - Local -->
@@ -34,48 +34,82 @@
 <script>
     let nostalgistInstance = null;
 
+    // Mapa de teclas virtuais para KeyCodes do teclado (Padrão RetroArch/Nostalgist)
+    const keyMap = {
+        'UP': 38,    // ArrowUp
+        'DOWN': 40,  // ArrowDown
+        'LEFT': 37,  // ArrowLeft
+        'RIGHT': 39, // ArrowRight
+        'A': 88,     // x
+        'B': 90,     // z
+        'X': 83,     // s
+        'Y': 65,     // a
+        'START': 13, // Enter
+        'SELECT': 16 // Shift
+    };
+
+    // Função chamada pelo Android via Interface JS
+    function androidButtonEvent(keyName, isDown) {
+        const keyCode = keyMap[keyName];
+        if (!keyCode) return;
+
+        const eventName = isDown ? 'keydown' : 'keyup';
+        const event = new KeyboardEvent(eventName, {
+            bubbles: true, 
+            cancelable: true, 
+            keyCode: keyCode,
+            which: keyCode,
+            key: keyName // opcional, mas ajuda em debug
+        });
+
+        // Dispara no window e no canvas para garantir
+        window.dispatchEvent(event);
+        const canvas = document.getElementById('game-canvas');
+        if (canvas) canvas.dispatchEvent(event);
+    }
+
     async function launchGame(base64Rom, fileName) {
         try {
-            console.log("Processando ROM: " + fileName);
+            console.log("Iniciando processamento da ROM...");
 
             if (nostalgistInstance) {
                 try { await nostalgistInstance.exit(); } catch (e) {}
                 nostalgistInstance = null;
             }
 
-            // 1. Converter Base64 para Uint8Array
-            const byteCharacters = atob(base64Rom);
-            const byteNumbers = new Array(byteCharacters.length);
-            for (let i = 0; i < byteCharacters.length; i++) {
-                byteNumbers[i] = byteCharacters.charCodeAt(i);
+            // Otimização: Conversão mais rápida usando Uint8Array.from se possível, 
+            // mas mantendo loop simples para compatibilidade
+            const binaryString = atob(base64Rom);
+            const len = binaryString.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
             }
-            const byteArray = new Uint8Array(byteNumbers);
 
-            // 2. Criar um objeto 'File' real
-            const romFile = new File([byteArray], fileName, { type: 'application/octet-stream' });
-
-            // 3. Obter o elemento canvas
+            const romFile = new File([bytes], fileName, { type: 'application/octet-stream' });
             const canvasElement = document.getElementById('game-canvas');
-            if (!canvasElement) {
-                throw new Error('Canvas element not found');
-            }
 
-            // 4. Iniciar Nostalgist com caminhos locais
+            // Configurações otimizadas para Nostalgist
             nostalgistInstance = await Nostalgist.launch({
-                element: canvasElement,  // Passar o objeto Element
-                core: 'snes9x',
+                element: canvasElement,
+                core: 'snes9x', 
                 rom: romFile,
-                
-                // Caminhos locais via assetLoader (usando nomes exatos dos arquivos extraídos)
                 resolveCoreJs: (core) => `/assets/cores/${core}_libretro.js`,
                 resolveCoreWasm: (core) => `/assets/cores/${core}_libretro.wasm`,
+                
+                // Tenta forçar configurações de performance se disponível na versão
+                run: {
+                    fceux: {
+                        hw_acceleration: true
+                    }
+                }
             });
             
-            console.log("Emulador iniciado com sucesso!");
+            console.log("Emulador rodando!");
 
         } catch (e) {
-            console.error("Erro fatal:", e);
-            alert("Erro: " + e.message);
+            console.error(e);
+            alert("Erro JS: " + e.message);
         }
     }
 </script>
