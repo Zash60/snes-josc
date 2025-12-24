@@ -24,8 +24,8 @@
             outline: none;
         }
     </style>
-    <!-- Nostalgist v0.19.1 -->
-    <script src="https://unpkg.com/nostalgist@0.19.1/dist/nostalgist.umd.js"></script>
+    <!-- Nostalgist v0.19.1 - Local -->
+    <script src="/assets/nostalgist.umd.js"></script>
 </head>
 <body>
 
@@ -51,19 +51,24 @@
             }
             const byteArray = new Uint8Array(byteNumbers);
 
-            // 2. CORREÇÃO: Criar um objeto 'File' real em vez de Blob genérico
-            // O Nostalgist moderno exige um File para saber o nome e extensão da ROM
+            // 2. Criar um objeto 'File' real
             const romFile = new File([byteArray], fileName, { type: 'application/octet-stream' });
 
-            // 3. Iniciar Nostalgist
+            // 3. Obter o elemento canvas
+            const canvasElement = document.getElementById('game-canvas');
+            if (!canvasElement) {
+                throw new Error('Canvas element not found');
+            }
+
+            // 4. Iniciar Nostalgist com caminhos locais
             nostalgistInstance = await Nostalgist.launch({
-                element: '#game-canvas',
+                element: canvasElement,  // Passar o objeto Element
                 core: 'snes9x',
-                rom: romFile, // Agora passamos o arquivo direto
+                rom: romFile,
                 
-                // CDN Configuration
-                resolveCoreJs: (core) => `https://unpkg.com/nostalgist@0.19.1/dist/cores/${core}.js`,
-                resolveCoreWasm: (core) => `https://unpkg.com/nostalgist@0.19.1/dist/cores/${core}.wasm`,
+                // Caminhos locais via assetLoader
+                resolveCoreJs: (core) => `/assets/cores/${core}.js`,
+                resolveCoreWasm: (core) => `/assets/cores/${core}.wasm`,
             });
             
             console.log("Emulador iniciado com sucesso!");
