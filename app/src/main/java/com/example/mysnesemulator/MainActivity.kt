@@ -28,17 +28,17 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var assetLoader: WebViewAssetLoader
 
-    // Interface para comunicação HTML -> Android
+    // === INTERFACE JS <-> ANDROID (SAVE/LOAD DISCO) ===
     inner class WebAppInterface(private val context: Context) {
         
         @JavascriptInterface
         fun saveStateToDisk(base64Data: String, fileName: String) {
             try {
-                // Remove o cabeçalho do Base64 se existir (data:application/octet-stream;base64,)
+                // Limpa cabeçalho se houver e decodifica
                 val cleanBase64 = if (base64Data.contains(",")) base64Data.split(",")[1] else base64Data
                 val bytes = Base64.decode(cleanBase64, Base64.DEFAULT)
                 
-                // Salva com o nome do jogo + .state
+                // Salva no armazenamento interno do app
                 val file = File(context.filesDir, "$fileName.state")
                 FileOutputStream(file).use { it.write(bytes) }
                 
@@ -67,7 +67,7 @@ class MainActivity : AppCompatActivity() {
                 val bytes = file.readBytes()
                 val base64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
                 
-                // Envia de volta para o JS
+                // Envia para o HTML
                 runOnUiThread {
                     binding.webView.evaluateJavascript("receiveStateFromAndroid('$base64');", null)
                 }
@@ -110,10 +110,10 @@ class MainActivity : AppCompatActivity() {
             settings.allowFileAccess = true
             settings.mediaPlaybackRequiresUserGesture = false
             
-            // Adiciona a interface JS com o nome "AndroidInterface"
+            // Registra a interface para o HTML chamar
             addJavascriptInterface(WebAppInterface(this@MainActivity), "AndroidInterface")
 
-            // Performance
+            // Performance Máxima
             clearCache(true)
             settings.cacheMode = WebSettings.LOAD_NO_CACHE 
             settings.setRenderPriority(WebSettings.RenderPriority.HIGH)
@@ -138,11 +138,10 @@ class MainActivity : AppCompatActivity() {
 
     @SuppressLint("ClickableViewAccessibility")
     private fun setupControls() {
-        // Mapeamento
-        mapButton(binding.btnUp, "UP")
-        mapButton(binding.btnDown, "DOWN")
-        mapButton(binding.btnLeft, "LEFT")
-        mapButton(binding.btnRight, "RIGHT")
+        // === D-PAD DESLIZANTE ===
+        setupDpadSliding()
+
+        // === BOTÕES DE AÇÃO (Toque Simples) ===
         mapButton(binding.btnA, "A")
         mapButton(binding.btnB, "B")
         mapButton(binding.btnX, "X")
@@ -152,7 +151,7 @@ class MainActivity : AppCompatActivity() {
         mapButton(binding.btnStart, "START")
         mapButton(binding.btnSelect, "SELECT")
 
-        // Botões Save/Load chamam JS
+        // === SAVE / LOAD ===
         binding.btnSaveState.setOnClickListener {
             binding.webView.evaluateJavascript("triggerSaveState();", null)
         }
@@ -161,21 +160,99 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // Lógica para detectar deslize no D-PAD
+    @SuppressLint("ClickableViewAccessibility")
+    private fun setupDpadSliding() {
+        var lastUp = false
+        var lastDown = false
+        var lastLeft = false
+        var lastRight = false
+
+        binding.dpadContainer.setOnTouchListener { view, event ->
+            val w = view.width.toFloat()
+            val h = view.height.toFloat()
+            val x = event.x
+            val y = event.y
+
+            // Divide a área em 3x3
+            // Esquerda < 33% | Direita > 66%
+            val isLeft = x < (w / 3)
+            val isRight = x > (w * 2 / 3)
+            // Cima < 33% | Baixo > 66%
+            val isUp = y < (h / 3)
+            val isDown = y > (h * 2 / 3)
+
+            when (event.action) {
+                MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
+                    // Esquerda
+                    if (isLeft != lastLeft) {
+                        sendInputToJs("LEFT", isLeft)
+                        binding.btnLeft.isPressed = isLeft // Feedback visual
+                        lastLeft = isLeft
+                    }
+                    // Direita (com proteção contra esquerda+direita simultâneos)
+                    if (isRight != lastRight && !isLeft) {
+                        sendInputToJs("RIGHT", isRight)
+                        binding.btnRight.isPressed = isRight
+                        lastRight = isRight
+                    } else if (isLeft && lastRight) {
+                        sendInputToJs("RIGHT", false)
+                        binding.btnRight.isPressed = false
+                        lastRight = false
+                    }
+
+                    // Cima
+                    if (isUp != lastUp) {
+                        sendInputToJs("UP", isUp)
+                        binding.btnUp.isPressed = isUp
+                        lastUp = isUp
+                    }
+                    // Baixo (com proteção)
+                    if (isDown != lastDown && !isUp) {
+                        sendInputToJs("DOWN", isDown)
+                        binding.btnDown.isPressed = isDown
+                        lastDown = isDown
+                    } else if (isUp && lastDown) {
+                        sendInputToJs("DOWN", false)
+                        binding.btnDown.isPressed = false
+                        lastDown = false
+                    }
+                }
+
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    // Soltou: desliga tudo
+                    if (lastLeft) { sendInputToJs("LEFT", false); binding.btnLeft.isPressed = false }
+                    if (lastRight) { sendInputToJs("RIGHT", false); binding.btnRight.isPressed = false }
+                    if (lastUp) { sendInputToJs("UP", false); binding.btnUp.isPressed = false }
+                    if (lastDown) { sendInputToJs("DOWN", false); binding.btnDown.isPressed = false }
+                    
+                    lastLeft = false; lastRight = false; lastUp = false; lastDown = false
+                }
+            }
+            true // Consome o evento (drag)
+        }
+    }
+
+    // Helper para botões simples
     @SuppressLint("ClickableViewAccessibility")
     private fun mapButton(view: View, keyName: String) {
         view.setOnTouchListener { v, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
                     v.isPressed = true
-                    binding.webView.evaluateJavascript("androidButtonEvent('$keyName', true);", null)
+                    sendInputToJs(keyName, true)
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     v.isPressed = false
-                    binding.webView.evaluateJavascript("androidButtonEvent('$keyName', false);", null)
+                    sendInputToJs(keyName, false)
                 }
             }
             true
         }
+    }
+
+    private fun sendInputToJs(key: String, isDown: Boolean) {
+        binding.webView.evaluateJavascript("androidButtonEvent('$key', $isDown);", null)
     }
 
     private fun loadRom(uri: Uri) {
