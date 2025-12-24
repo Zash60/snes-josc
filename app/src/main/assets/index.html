@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SNES Emulator</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #game-container {
+            width: 100%;
+            height: 100%;
+        }
+        canvas {
+            display: block;
+            width: 100% !important;
+            height: 100% !important;
+            object-fit: contain;
+        }
+    </style>
+    <!-- Importa Nostalgist via CDN -->
+    <script src="https://unpkg.com/nostalgist@0.5.0/dist/nostalgist.umd.js"></script>
+</head>
+<body>
+
+<div id="game-container"></div>
+
+<script>
+    let nostalgistInstance = null;
+
+    // Função chamada pelo Kotlin para iniciar o jogo
+    async function launchGame(base64Rom, fileName) {
+        try {
+            console.log("Iniciando processo de carregamento...");
+            
+            // Converter Base64 para Blob
+            const byteCharacters = atob(base64Rom);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            const romBlob = new Blob([byteArray], { type: 'application/octet-stream' });
+            
+            // Se já houver uma instância, destrua-a (reload simples por segurança)
+            if (nostalgistInstance) {
+                // Nostalgist não tem um 'destroy' perfeito documentado, 
+                // recarregar a página é mais seguro para limpar memória WASM
+                window.location.reload();
+                return; 
+            }
+
+            // Iniciar Nostalgist
+            nostalgistInstance = await Nostalgist.launch({
+                element: document.getElementById('game-container'),
+                core: 'snes9x', // Define o núcleo SNES
+                rom: { 
+                    fileName: fileName, 
+                    fileData: romBlob 
+                },
+                resolveCoreJs: (core) => `https://unpkg.com/nostalgist@0.5.0/dist/cores/${core}.js`,
+                resolveCoreWasm: (core) => `https://unpkg.com/nostalgist@0.5.0/dist/cores/${core}.wasm`,
+            });
+            
+            console.log("Emulador iniciado com sucesso!");
+
+        } catch (e) {
+            console.error("Erro ao iniciar emulador:", e);
+            alert("Erro: " + e.message);
+        }
+    }
+</script>
+
+</body>
+</html>
