@@ -5,8 +5,10 @@ import android.util.Base64
 import android.webkit.ConsoleMessage
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
+import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.webkit.WebViewAssetLoader
@@ -32,6 +34,9 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        // Desabilitar FAB até a página carregar
+        binding.fabLoadRom.isEnabled = false
+
         setupWebView()
 
         binding.fabLoadRom.setOnClickListener {
@@ -50,6 +55,8 @@ class MainActivity : AppCompatActivity() {
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
             settings.allowFileAccess = true
+            settings.allowContentAccess = true
+            settings.allowFileAccessFromFileURLs = true
             settings.mediaPlaybackRequiresUserGesture = false
             
             // Hardware acceleration
@@ -68,6 +75,11 @@ class MainActivity : AppCompatActivity() {
                     view: WebView?,
                     request: WebResourceRequest?
                 ) = assetLoader.shouldInterceptRequest(request!!.url)
+
+                override fun onPageFinished(view: WebView?, url: String?) {
+                    super.onPageFinished(view, url)
+                    binding.fabLoadRom.isEnabled = true
+                }
             }
 
             // Carrega o arquivo HTML local usando o domínio virtual
@@ -92,7 +104,6 @@ class MainActivity : AppCompatActivity() {
             inputStream?.use { stream ->
                 val bytes = stream.readBytes()
                 // Converte ROM para Base64
-                // Nota: Arquivos muito grandes podem causar OutOfMemory ou lentidão na ponte JS
                 val base64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
                 
                 // Executa o script JS injetando a ROM
@@ -105,6 +116,7 @@ class MainActivity : AppCompatActivity() {
         } catch (e: Exception) {
             e.printStackTrace()
             android.util.Log.e("Emulator", "Erro ao carregar ROM: ${e.message}")
+            Toast.makeText(this, "Erro ao carregar ROM: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
 }
