@@ -3,57 +3,48 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SNES 2005 Pro</title>
+    <title>SNES Pro</title>
     <style>
-        /* RESET E TELA CHEIA */
+        /* CSS Reset e Tela Cheia */
         * { margin: 0; padding: 0; box-sizing: border-box; touch-action: none; user-select: none; -webkit-user-select: none; }
         body, html { width: 100%; height: 100%; background-color: #000; overflow: hidden; position: fixed; }
         
-        /* CANVAS ESTICADO */
         canvas {
             display: block;
             width: 100vw !important;
             height: 100vh !important;
-            object-fit: fill;
-            image-rendering: pixelated; /* Mantém pixels nítidos */
-            image-rendering: crisp-edges;
+            object-fit: fill; /* Preenche a tela toda */
+            image-rendering: pixelated;
         }
 
-        /* FPS OVERLAY */
-        #fps-overlay {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            color: #00FF00;
-            font-family: monospace;
-            font-size: 14px;
-            font-weight: bold;
-            background: rgba(0,0,0,0.5);
-            padding: 4px 8px;
-            border-radius: 4px;
-            pointer-events: none;
-            z-index: 9998;
-        }
-
-        /* NOTIFICAÇÃO (Substitui o Alert) */
+        /* Notificações (Toast) */
         #game-toast {
             position: absolute;
-            top: 20%;
+            top: 10%; /* Mais para cima para não tapar o jogo */
             left: 50%;
-            transform: translate(-50%, -50%);
-            background-color: rgba(0, 0, 0, 0.8);
+            transform: translateX(-50%);
+            background-color: rgba(50, 50, 50, 0.9);
             color: #fff;
-            padding: 15px 25px;
-            border-radius: 8px;
-            font-family: sans-serif;
-            font-size: 18px;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-family: monospace;
+            font-size: 16px;
             font-weight: bold;
-            text-align: center;
             opacity: 0;
-            transition: opacity 0.5s;
+            transition: opacity 0.3s;
             pointer-events: none;
             z-index: 9999;
-            border: 1px solid #444;
+            border: 1px solid #fff;
+        }
+
+        #fps-overlay {
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            color: #00FF00;
+            font-family: monospace;
+            font-size: 12px;
+            pointer-events: none;
         }
     </style>
     <script src="/assets/nostalgist.umd.js"></script>
@@ -61,156 +52,134 @@
 <body>
 
 <div id="fps-overlay">FPS: 0</div>
-<div id="game-toast">Mensagem</div>
+<div id="game-toast">Notificação</div>
 <canvas id="game-canvas" tabindex="1"></canvas>
 
 <script>
     let nostalgistInstance = null;
-    let memorySaveState = null; // Variável RAM para o Save
-    
     const canvas = document.getElementById('game-canvas');
-    const fpsElement = document.getElementById('fps-overlay');
     const toastElement = document.getElementById('game-toast');
+    const fpsElement = document.getElementById('fps-overlay');
 
-    // --- SISTEMA DE NOTIFICAÇÃO (TOAST) ---
+    // --- Notificações ---
     let toastTimeout;
-    function showToast(message, isError = false) {
-        toastElement.innerText = message;
-        toastElement.style.color = isError ? "#FF5555" : "#FFFFFF";
+    function showToast(msg, isError = false) {
+        toastElement.innerText = msg;
+        toastElement.style.borderColor = isError ? "#ff5555" : "#55ff55";
         toastElement.style.opacity = "1";
-        
         clearTimeout(toastTimeout);
-        toastTimeout = setTimeout(() => {
-            toastElement.style.opacity = "0";
-        }, 2000); // Some depois de 2 segundos
+        toastTimeout = setTimeout(() => { toastElement.style.opacity = "0"; }, 2500);
     }
 
-    // --- FPS COUNTER ---
-    let frameCount = 0;
-    let lastTime = performance.now();
+    // --- FPS ---
+    let frameCount = 0; let lastTime = performance.now();
     function loopFPS() {
-        const now = performance.now();
-        frameCount++;
-        if (now - lastTime >= 1000) {
-            fpsElement.innerText = "FPS: " + frameCount;
-            frameCount = 0;
-            lastTime = now;
-        }
+        const now = performance.now(); frameCount++;
+        if (now - lastTime >= 1000) { fpsElement.innerText = "FPS: " + frameCount; frameCount = 0; lastTime = now; }
         requestAnimationFrame(loopFPS);
     }
     requestAnimationFrame(loopFPS);
 
-    // --- MAPA DE TECLAS (COM L e R) ---
+    // --- Controles (Teclado Virtual) ---
     const keyMap = {
-        'UP':    { code: 'ArrowUp',    key: 'ArrowUp',    keyCode: 38 },
-        'DOWN':  { code: 'ArrowDown',  key: 'ArrowDown',  keyCode: 40 },
-        'LEFT':  { code: 'ArrowLeft',  key: 'ArrowLeft',  keyCode: 37 },
-        'RIGHT': { code: 'ArrowRight', key: 'ArrowRight', keyCode: 39 },
-        'A':     { code: 'KeyX',       key: 'x',          keyCode: 88 },
-        'B':     { code: 'KeyZ',       key: 'z',          keyCode: 90 },
-        'X':     { code: 'KeyS',       key: 's',          keyCode: 83 },
-        'Y':     { code: 'KeyA',       key: 'a',          keyCode: 65 },
-        'L':     { code: 'KeyQ',       key: 'q',          keyCode: 81 }, // Mapeado para Q
-        'R':     { code: 'KeyW',       key: 'w',          keyCode: 87 }, // Mapeado para W
-        'START': { code: 'Enter',      key: 'Enter',      keyCode: 13 },
-        'SELECT':{ code: 'ShiftRight', key: 'Shift',      keyCode: 16 }
+        'UP': {code:'ArrowUp', key:'ArrowUp', keyCode:38},
+        'DOWN': {code:'ArrowDown', key:'ArrowDown', keyCode:40},
+        'LEFT': {code:'ArrowLeft', key:'ArrowLeft', keyCode:37},
+        'RIGHT': {code:'ArrowRight', key:'ArrowRight', keyCode:39},
+        'A': {code:'KeyX', key:'x', keyCode:88},
+        'B': {code:'KeyZ', key:'z', keyCode:90},
+        'X': {code:'KeyS', key:'s', keyCode:83},
+        'Y': {code:'KeyA', key:'a', keyCode:65},
+        'L': {code:'KeyQ', key:'q', keyCode:81},
+        'R': {code:'KeyW', key:'w', keyCode:87},
+        'START': {code:'Enter', key:'Enter', keyCode:13},
+        'SELECT': {code:'ShiftRight', key:'Shift', keyCode:16}
     };
 
-    function androidButtonEvent(btnName, isDown) {
-        const mapping = keyMap[btnName];
-        if (!mapping) return;
-        
-        if (document.activeElement !== canvas) canvas.focus();
-
-        const eventName = isDown ? 'keydown' : 'keyup';
-        const event = new KeyboardEvent(eventName, {
-            bubbles: true, cancelable: true, view: window,
-            key: mapping.key, code: mapping.code, keyCode: mapping.keyCode, which: mapping.keyCode,
+    function androidButtonEvent(btn, isDown) {
+        const m = keyMap[btn]; if(!m) return;
+        if(document.activeElement !== canvas) canvas.focus();
+        const evt = new KeyboardEvent(isDown?'keydown':'keyup', {
+            bubbles:true, cancelable:true, view:window,
+            key:m.key, code:m.code, keyCode:m.keyCode, which:m.keyCode
         });
-        canvas.dispatchEvent(event);
-        window.dispatchEvent(event);
+        canvas.dispatchEvent(evt); window.dispatchEvent(evt);
     }
 
-    // --- SAVE / LOAD STATE (CORRIGIDO) ---
+    // --- SAVE STATE (LocalStorage - Persistente) ---
     async function triggerSaveState() {
-        if (!nostalgistInstance) return showToast("Nenhum jogo rodando", true);
+        if (!nostalgistInstance) return showToast("Abra um jogo primeiro!", true);
         try {
-            // Salva o estado como um Blob
-            const stateBlob = await nostalgistInstance.saveState();
+            showToast("Salvando...");
+            const blob = await nostalgistInstance.saveState();
             
-            // Converte para um objeto File para garantir compatibilidade
-            memorySaveState = new File([stateBlob], "state.sav");
-            
-            showToast("Estado Salvo!");
+            // Converte Blob para Base64 para salvar no armazenamento do App
+            const reader = new FileReader();
+            reader.readAsDataURL(blob); 
+            reader.onloadend = function() {
+                const base64data = reader.result;
+                try {
+                    localStorage.setItem('snes_save_state', base64data);
+                    showToast("Salvo com Sucesso!");
+                } catch (e) {
+                    showToast("Erro: Save muito grande.", true);
+                }
+            }
         } catch (e) {
+            showToast("Erro ao salvar.", true);
             console.error(e);
-            showToast("Erro ao Salvar", true);
         }
     }
 
+    // --- LOAD STATE (LocalStorage - Persistente) ---
     async function triggerLoadState() {
-        if (!nostalgistInstance) return showToast("Nenhum jogo rodando", true);
-        if (!memorySaveState) {
-            return showToast("Nenhum Save Encontrado!", true);
-        }
+        if (!nostalgistInstance) return showToast("Abra um jogo primeiro!", true);
         try {
-            // Carrega o arquivo File que criamos no save
-            await nostalgistInstance.loadState(memorySaveState);
-            showToast("Estado Carregado!");
+            const base64data = localStorage.getItem('snes_save_state');
+            if (!base64data) return showToast("Nenhum Save encontrado!", true);
+
+            showToast("Carregando...");
+            
+            // Converte Base64 de volta para Blob
+            const res = await fetch(base64data);
+            const blob = await res.blob();
+            
+            await nostalgistInstance.loadState(blob);
+            showToast("Carregado!");
         } catch (e) {
+            showToast("Erro ao carregar.", true);
             console.error(e);
-            // Mensagem técnica no console, mas simples na tela
-            showToast("Erro ao carregar Save", true); 
         }
     }
 
-    // --- INICIAR JOGO ---
-    async function launchGame(base64Rom, fileName) {
+    // --- Iniciar Jogo ---
+    async function launchGame(romBase64, fileName) {
         try {
-            showToast("Carregando Core...");
+            if (nostalgistInstance) { await nostalgistInstance.exit(); nostalgistInstance = null; }
+            
+            const bin = atob(romBase64);
+            const bytes = new Uint8Array(bin.length);
+            for (let i=0; i<bin.length; i++) bytes[i] = bin.charCodeAt(i);
+            const file = new File([bytes], fileName);
 
-            if (nostalgistInstance) {
-                await nostalgistInstance.exit();
-                nostalgistInstance = null;
-                memorySaveState = null; // Reseta o save ao trocar de jogo
-            }
-
-            const binaryString = atob(base64Rom);
-            const len = binaryString.length;
-            const bytes = new Uint8Array(len);
-            for (let i = 0; i < len; i++) {
-                bytes[i] = binaryString.charCodeAt(i);
-            }
-            const romFile = new File([bytes], fileName);
-
-            // CORE 2005 (Arquivos: snes9x2005_libretro.js / .wasm)
             nostalgistInstance = await Nostalgist.launch({
                 element: canvas,
-                core: 'snes9x2005', 
-                rom: romFile,
-                resolveCoreJs: (core) => `/assets/cores/${core}_libretro.js`,
-                resolveCoreWasm: (core) => `/assets/cores/${core}_libretro.wasm`,
-
+                core: 'snes9x2005', // Mantenha os arquivos 2005 na pasta assets!
+                rom: file,
+                resolveCoreJs: (c) => `/assets/cores/${c}_libretro.js`,
+                resolveCoreWasm: (c) => `/assets/cores/${c}_libretro.wasm`,
                 retroarchConfig: {
                     video_scale_integer: "false",
                     video_aspect_ratio_auto: "true",
-                    video_smooth: "false", 
-                    
-                    // Configurações para evitar travamentos
-                    audio_latency: "96", 
-                    video_vsync: "true",
+                    video_smooth: "false",
+                    audio_latency: "96",
                     video_threaded: "true"
                 }
             });
-
-            setTimeout(() => {
-                canvas.focus();
-                showToast("Jogo Iniciado!");
-            }, 800);
-
+            setTimeout(() => canvas.focus(), 500);
+            showToast("Jogo Iniciado!");
         } catch (e) {
-            console.error(e);
-            showToast("Erro Fatal: " + e.message, true);
+            showToast("Erro: " + e.message, true);
         }
     }
 </script>
