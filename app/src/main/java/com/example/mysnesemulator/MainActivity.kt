@@ -1,6 +1,7 @@
 package com.example.mysnesemulator
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -19,13 +20,66 @@ import com.example.mysnesemulator.databinding.ActivityMainBinding
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.FileOutputStream
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var assetLoader: WebViewAssetLoader
 
-    // Seletor de Arquivos
+    // Interface para comunicação HTML -> Android
+    inner class WebAppInterface(private val context: Context) {
+        
+        @JavascriptInterface
+        fun saveStateToDisk(base64Data: String, fileName: String) {
+            try {
+                // Remove o cabeçalho do Base64 se existir (data:application/octet-stream;base64,)
+                val cleanBase64 = if (base64Data.contains(",")) base64Data.split(",")[1] else base64Data
+                val bytes = Base64.decode(cleanBase64, Base64.DEFAULT)
+                
+                // Salva com o nome do jogo + .state
+                val file = File(context.filesDir, "$fileName.state")
+                FileOutputStream(file).use { it.write(bytes) }
+                
+                runOnUiThread {
+                    binding.webView.evaluateJavascript("showToast('Salvo no Android!');", null)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                runOnUiThread {
+                    binding.webView.evaluateJavascript("showToast('Erro ao gravar disco', true);", null)
+                }
+            }
+        }
+
+        @JavascriptInterface
+        fun loadStateFromDisk(fileName: String) {
+            try {
+                val file = File(context.filesDir, "$fileName.state")
+                if (!file.exists()) {
+                    runOnUiThread {
+                        binding.webView.evaluateJavascript("showToast('Nenhum save para este jogo', true);", null)
+                    }
+                    return
+                }
+
+                val bytes = file.readBytes()
+                val base64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
+                
+                // Envia de volta para o JS
+                runOnUiThread {
+                    binding.webView.evaluateJavascript("receiveStateFromAndroid('$base64');", null)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                runOnUiThread {
+                    binding.webView.evaluateJavascript("showToast('Erro ao ler disco', true);", null)
+                }
+            }
+        }
+    }
+
     private val filePickerLauncher = registerForActivityResult(
         ActivityResultContracts.GetContent()
     ) { uri -> uri?.let { loadRom(it) } }
@@ -39,12 +93,7 @@ class MainActivity : AppCompatActivity() {
         setupWebView()
         setupControls()
 
-        // Garante que o botão esteja visível ao iniciar
-        binding.fabLoadRom.visibility = View.VISIBLE
-        
-        // Ação do clique no botão
         binding.fabLoadRom.setOnClickListener {
-            // Abre o explorador de arquivos filtrando tudo (para garantir compatibilidade)
             filePickerLauncher.launch("*/*")
         }
     }
@@ -61,7 +110,10 @@ class MainActivity : AppCompatActivity() {
             settings.allowFileAccess = true
             settings.mediaPlaybackRequiresUserGesture = false
             
-            // Otimizações
+            // Adiciona a interface JS com o nome "AndroidInterface"
+            addJavascriptInterface(WebAppInterface(this@MainActivity), "AndroidInterface")
+
+            // Performance
             clearCache(true)
             settings.cacheMode = WebSettings.LOAD_NO_CACHE 
             settings.setRenderPriority(WebSettings.RenderPriority.HIGH)
@@ -71,7 +123,6 @@ class MainActivity : AppCompatActivity() {
             isHorizontalScrollBarEnabled = false
             
             webChromeClient = WebChromeClient()
-            
             webViewClient = object : WebViewClient() {
                 override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?) 
                     = assetLoader.shouldInterceptRequest(request!!.url)
@@ -87,24 +138,21 @@ class MainActivity : AppCompatActivity() {
 
     @SuppressLint("ClickableViewAccessibility")
     private fun setupControls() {
-        // Mapeamento dos botões (Lógica de Toque)
+        // Mapeamento
         mapButton(binding.btnUp, "UP")
         mapButton(binding.btnDown, "DOWN")
         mapButton(binding.btnLeft, "LEFT")
         mapButton(binding.btnRight, "RIGHT")
-        
         mapButton(binding.btnA, "A")
         mapButton(binding.btnB, "B")
         mapButton(binding.btnX, "X")
         mapButton(binding.btnY, "Y")
-        
         mapButton(binding.btnL, "L")
         mapButton(binding.btnR, "R")
-        
         mapButton(binding.btnStart, "START")
         mapButton(binding.btnSelect, "SELECT")
 
-        // Botões de Sistema (Save/Load)
+        // Botões Save/Load chamam JS
         binding.btnSaveState.setOnClickListener {
             binding.webView.evaluateJavascript("triggerSaveState();", null)
         }
@@ -131,14 +179,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun loadRom(uri: Uri) {
-        // NÃO escondemos mais o botão. Ele fica visível para você trocar de jogo.
-        Toast.makeText(this, "Carregando Jogo...", Toast.LENGTH_SHORT).show()
-
+        Toast.makeText(this, "Carregando...", Toast.LENGTH_SHORT).show()
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val contentResolver = applicationContext.contentResolver
-                
-                // Pega nome do arquivo (opcional, mas bom para logs)
                 var fileName = "game.sfc"
                 contentResolver.query(uri, null, null, null, null)?.use {
                     if (it.moveToFirst()) {
@@ -146,25 +190,21 @@ class MainActivity : AppCompatActivity() {
                         if (idx != -1) fileName = it.getString(idx)
                     }
                 }
-
-                // Lê o arquivo
                 val stream = contentResolver.openInputStream(uri)
                 val bytes = stream?.readBytes()
                 stream?.close()
 
                 if (bytes != null) {
                     val base64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
-                    
                     withContext(Dispatchers.Main) {
-                        // Envia para o WebView
                         binding.webView.evaluateJavascript("launchGame('$base64', '$fileName');") {
-                            hideSystemUI() // Garante tela cheia novamente
+                            hideSystemUI()
                         }
                     }
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(this@MainActivity, "Erro ao abrir: ${e.message}", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this@MainActivity, "Erro: ${e.message}", Toast.LENGTH_LONG).show()
                 }
             }
         }
