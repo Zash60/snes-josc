@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SNES Emulator 2005</title>
+    <title>SNES Emulator Native FPS</title>
     <style>
         body, html {
             margin: 0;
@@ -11,87 +11,58 @@
             width: 100%;
             height: 100%;
             background-color: #000;
-            overflow: hidden; /* Remove barras de rolagem */
+            overflow: hidden;
         }
         canvas#game-canvas {
             display: block;
             width: 100%;
             height: 100%;
-            object-fit: contain; /* Ajusta mantendo proporção */
-            image-rendering: pixelated; /* Deixa os pixels nítidos (crucial para Retro) */
+            object-fit: contain;
+            /* Garante pixels nítidos (estilo Retro) */
+            image-rendering: pixelated;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: crisp-edges;
             outline: none;
         }
-        #fps-display {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            color: #00FF00;
-            font-family: monospace;
-            font-size: 16px;
-            background-color: rgba(0, 0, 0, 0.5);
-            padding: 5px;
-            border-radius: 4px;
-            pointer-events: none; /* Deixa o clique passar através dele */
-            z-index: 100;
-        }
     </style>
-    <!-- Nostalgist Lib -->
+    <!-- Carrega a biblioteca Nostalgist -->
     <script src="/assets/nostalgist.umd.js"></script>
 </head>
 <body>
 
-<!-- Contador de FPS -->
-<div id="fps-display">FPS: 0</div>
-
-<!-- Canvas do Jogo -->
 <canvas id="game-canvas" tabindex="1"></canvas>
 
 <script>
     let nostalgistInstance = null;
     const canvas = document.getElementById('game-canvas');
-    const fpsDisplay = document.getElementById('fps-display');
 
-    // --- Lógica de FPS ---
-    let frameCount = 0;
-    let lastTime = performance.now();
-    function updateFPS() {
-        const now = performance.now();
-        frameCount++;
-        if (now - lastTime >= 1000) {
-            fpsDisplay.textContent = `FPS: ${frameCount}`;
-            frameCount = 0;
-            lastTime = now;
-        }
-        requestAnimationFrame(updateFPS);
-    }
-    requestAnimationFrame(updateFPS); // Inicia contador
-
-    // --- Mapeamento de Teclas para Snes9x 2005 ---
-    // O core 2005 geralmente segue o padrão RetroArch
+    // Mapeamento de Teclas (Padrão RetroArch)
     const keyMap = {
         'UP':    { code: 'ArrowUp',    key: 'ArrowUp',    keyCode: 38 },
         'DOWN':  { code: 'ArrowDown',  key: 'ArrowDown',  keyCode: 40 },
         'LEFT':  { code: 'ArrowLeft',  key: 'ArrowLeft',  keyCode: 37 },
         'RIGHT': { code: 'ArrowRight', key: 'ArrowRight', keyCode: 39 },
-        'A':     { code: 'KeyX',       key: 'x',          keyCode: 88 }, // A do SNES
-        'B':     { code: 'KeyZ',       key: 'z',          keyCode: 90 }, // B do SNES
-        'X':     { code: 'KeyS',       key: 's',          keyCode: 83 }, // X do SNES
-        'Y':     { code: 'KeyA',       key: 'a',          keyCode: 65 }, // Y do SNES
+        'A':     { code: 'KeyX',       key: 'x',          keyCode: 88 },
+        'B':     { code: 'KeyZ',       key: 'z',          keyCode: 90 },
+        'X':     { code: 'KeyS',       key: 's',          keyCode: 83 },
+        'Y':     { code: 'KeyA',       key: 'a',          keyCode: 65 },
         'START': { code: 'Enter',      key: 'Enter',      keyCode: 13 },
         'SELECT':{ code: 'ShiftRight', key: 'Shift',      keyCode: 16 }
     };
 
-    // Função chamada pelo Android (MainActivity.kt)
+    // Função de Entrada Android -> JS
     function androidButtonEvent(btnName, isDown) {
         const mapping = keyMap[btnName];
         if (!mapping) return;
 
-        // Garante foco para o emulador receber o input
-        if (document.activeElement !== canvas) canvas.focus();
+        // Garante Foco
+        if (document.activeElement !== canvas) {
+            canvas.focus();
+        }
 
         const eventName = isDown ? 'keydown' : 'keyup';
         
-        // Cria evento de teclado completo para compatibilidade máxima
+        // Cria evento simulado completo
         const event = new KeyboardEvent(eventName, {
             bubbles: true,
             cancelable: true,
@@ -102,20 +73,22 @@
             which: mapping.keyCode,
         });
 
+        // Dispara no Canvas e Window para compatibilidade
         canvas.dispatchEvent(event);
-        window.dispatchEvent(event); // Alguns cores escutam na window
+        window.dispatchEvent(event);
     }
 
+    // Função de Inicialização
     async function launchGame(base64Rom, fileName) {
         try {
-            console.log("Iniciando ROM: " + fileName);
-
+            // Limpa instância anterior se existir
             if (nostalgistInstance) {
                 await nostalgistInstance.exit();
                 nostalgistInstance = null;
             }
 
-            // Converter Base64 para Uint8Array
+            console.log("Convertendo ROM...");
+            // Decodifica Base64 para Array de Bytes
             const binaryString = atob(base64Rom);
             const len = binaryString.length;
             const bytes = new Uint8Array(len);
@@ -125,35 +98,43 @@
 
             const romFile = new File([bytes], fileName);
 
-            // Iniciar Nostalgist com Core 2005
+            console.log("Iniciando Nostalgist com snes9x2002...");
+
+            // Inicia Emulador
             nostalgistInstance = await Nostalgist.launch({
                 element: canvas,
-                // MUDANÇA CRUCIAL PARA PERFORMANCE:
-                core: 'snes9x2005', 
-                rom: romFile,
                 
-                // Mapeia para os arquivos locais na pasta assets/cores/
+                // CORE MAIS RÁPIDO (Baixar snes9x2002_libretro.js/.wasm)
+                core: 'snes9x2002', 
+                
+                rom: romFile,
                 resolveCoreJs: (core) => `/assets/cores/${core}_libretro.js`,
                 resolveCoreWasm: (core) => `/assets/cores/${core}_libretro.wasm`,
-                
-                // Configurações extras de estilo
-                style: {
-                    width: '100%',
-                    height: '100%',
-                    position: 'absolute',
-                    top: '0',
-                    left: '0'
+
+                // CONFIGURAÇÃO INTERNA DO RETROARCH
+                retroarchConfig: {
+                    // Exibe o contador de FPS nativo do emulador (Texto Amarelo)
+                    fps_show: "true",
+
+                    // Configurações de Vídeo (Sem Skip Frame)
+                    video_vsync: "true",          // Mantém sincronia vertical
+                    video_threaded: "true",       // Tenta usar thread separada para vídeo
+                    
+                    // Configurações de Áudio (Baixa Latência)
+                    audio_latency: "64",          // 64ms é um bom equilíbrio
+                    audio_sync: "true",           // Sincroniza emulação com áudio
                 }
             });
-
-            console.log("Emulador Snes9x2005 iniciado!");
             
-            // Foca no canvas após iniciar
-            setTimeout(() => { canvas.focus(); }, 500);
+            // Foco final
+            setTimeout(() => {
+                canvas.focus();
+                console.log("Emulador pronto.");
+            }, 500);
 
         } catch (e) {
-            console.error("Erro ao iniciar emulador:", e);
-            alert("Erro: " + e.message + "\nVerifique se os arquivos snes9x2005 estão na pasta assets/cores!");
+            console.error("Erro Fatal:", e);
+            alert("Erro: " + e.message + "\n\nVerifique se os arquivos 'snes9x2002_libretro' (.js e .wasm) estão na pasta assets/cores/.");
         }
     }
 </script>
