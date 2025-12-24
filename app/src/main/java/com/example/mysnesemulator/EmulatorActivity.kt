@@ -2,14 +2,11 @@ package com.example.mysnesemulator
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.net.Uri // <--- ESTA LINHA ESTAVA FALTANDO
-import android.os.Build
+import android.net.Uri
 import android.os.Bundle
 import android.util.Base64
 import android.view.MotionEvent
 import android.view.View
-import android.view.WindowInsets
-import android.view.WindowInsetsController
 import android.webkit.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
@@ -25,8 +22,8 @@ class EmulatorActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityEmulatorBinding
     private lateinit var assetLoader: WebViewAssetLoader
+    private var isCrtEnabled = false
 
-    // Interface para comunicação JS <-> Android (Save/Load)
     inner class WebAppInterface(private val context: Context) {
         @JavascriptInterface
         fun saveStateToDisk(base64Data: String, fileName: String) {
@@ -56,6 +53,17 @@ class EmulatorActivity : AppCompatActivity() {
                 runOnUiThread { binding.webView.evaluateJavascript("showToast('Erro ao ler disco', true);", null) }
             }
         }
+        
+        // Chamado pelo JS quando o emulador termina de carregar
+        @JavascriptInterface
+        fun onGameLoaded() {
+            runOnUiThread {
+                // Aplica o CRT se estiver ativado
+                if (isCrtEnabled) {
+                    binding.webView.evaluateJavascript("setScanlines(true);", null)
+                }
+            }
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -67,11 +75,12 @@ class EmulatorActivity : AppCompatActivity() {
         setupWebView()
         setupControls()
 
-        // 1. Aplica efeito CRT se selecionado no Menu
-        val useCrt = intent.getBooleanExtra("CRT_MODE", false)
-        binding.scanlineOverlay.visibility = if (useCrt) View.VISIBLE else View.GONE
+        // Pega a configuração do Menu Principal
+        isCrtEnabled = intent.getBooleanExtra("CRT_MODE", false)
+        
+        // Se a View do XML ainda existir, esconda-a, pois usaremos CSS
+        binding.scanlineOverlay.visibility = View.GONE
 
-        // 2. Carrega a ROM vinda do Menu
         val romUri = intent.data
         val romName = intent.getStringExtra("ROM_NAME") ?: "game.sfc"
         if (romUri != null) {
@@ -126,20 +135,8 @@ class EmulatorActivity : AppCompatActivity() {
         mapButton(binding.btnStart, "START")
         mapButton(binding.btnSelect, "SELECT")
 
-        // Botão Turbo: Envia tecla ESPAÇO (KeyCode 32)
-        binding.btnTurbo.setOnTouchListener { v, event ->
-            when (event.action) {
-                MotionEvent.ACTION_DOWN -> {
-                    v.isPressed = true
-                    binding.webView.evaluateJavascript("window.dispatchEvent(new KeyboardEvent('keydown', {code:'Space', key:' ', keyCode:32, bubbles:true}));", null)
-                }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    v.isPressed = false
-                    binding.webView.evaluateJavascript("window.dispatchEvent(new KeyboardEvent('keyup', {code:'Space', key:' ', keyCode:32, bubbles:true}));", null)
-                }
-            }
-            true
-        }
+        // Botão Turbo atualizado: Envia "TURBO" para o JS
+        mapButton(binding.btnTurbo, "TURBO")
 
         binding.btnSaveState.setOnClickListener { binding.webView.evaluateJavascript("triggerSaveState();", null) }
         binding.btnLoadState.setOnClickListener { binding.webView.evaluateJavascript("triggerLoadState();", null) }
@@ -157,7 +154,6 @@ class EmulatorActivity : AppCompatActivity() {
             val h = view.height.toFloat()
             val x = event.x
             val y = event.y
-
             val isLeft = x < (w / 3)
             val isRight = x > (w * 2 / 3)
             val isUp = y < (h / 3)
@@ -200,7 +196,6 @@ class EmulatorActivity : AppCompatActivity() {
         binding.webView.evaluateJavascript("androidButtonEvent('$key', $isDown);", null)
     }
 
-    // AQUI OCORRIA O ERRO: AGORA A CLASSE Uri FOI IMPORTADA
     private fun loadRom(uri: Uri, fileName: String) {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
@@ -208,7 +203,6 @@ class EmulatorActivity : AppCompatActivity() {
                 val stream = contentResolver.openInputStream(uri)
                 val bytes = stream?.readBytes()
                 stream?.close()
-
                 if (bytes != null) {
                     val base64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
                     withContext(Dispatchers.Main) {
@@ -217,9 +211,7 @@ class EmulatorActivity : AppCompatActivity() {
                         }
                     }
                 }
-            } catch (e: Exception) {
-                // Erro silencioso ou log
-            }
+            } catch (e: Exception) {}
         }
     }
 
