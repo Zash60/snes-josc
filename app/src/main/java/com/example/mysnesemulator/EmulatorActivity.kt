@@ -2,14 +2,14 @@ package com.example.mysnesemulator
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.net.Uri // Necessário para carregar ROMs
-import android.os.Build // Necessário para verificar versão do Android
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.util.Base64
 import android.view.MotionEvent
 import android.view.View
-import android.view.WindowInsets // Necessário para Tela Cheia (Android 11+)
-import android.view.WindowInsetsController // Necessário para Tela Cheia (Android 11+)
+import android.view.WindowInsets
+import android.view.WindowInsetsController
 import android.webkit.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
@@ -20,6 +20,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
+import java.nio.charset.Charset
 
 class EmulatorActivity : AppCompatActivity() {
 
@@ -27,44 +28,42 @@ class EmulatorActivity : AppCompatActivity() {
     private lateinit var assetLoader: WebViewAssetLoader
     private var isCrtEnabled = false
 
-    // Interface para comunicação JS <-> Android
     inner class WebAppInterface(private val context: Context) {
         
+        // Agora salva uma String JSON completa (Estado + Inputs TAS)
         @JavascriptInterface
-        fun saveStateToDisk(base64Data: String, fileName: String) {
+        fun saveTasBundleToDisk(jsonBundle: String, fileName: String) {
             try {
-                val cleanBase64 = if (base64Data.contains(",")) base64Data.split(",")[1] else base64Data
-                val bytes = Base64.decode(cleanBase64, Base64.DEFAULT)
-                val file = File(context.filesDir, "$fileName.state")
-                FileOutputStream(file).use { it.write(bytes) }
-                runOnUiThread { binding.webView.evaluateJavascript("showToast('Salvo no Android!');", null) }
+                val file = File(context.filesDir, "$fileName.tas")
+                FileOutputStream(file).use { it.write(jsonBundle.toByteArray()) }
+                runOnUiThread { binding.webView.evaluateJavascript("showToast('TAS Save Salvo!');", null) }
             } catch (e: Exception) {
-                runOnUiThread { binding.webView.evaluateJavascript("showToast('Erro ao gravar disco', true);", null) }
+                runOnUiThread { binding.webView.evaluateJavascript("showToast('Erro ao gravar TAS', true);", null) }
             }
         }
 
         @JavascriptInterface
-        fun loadStateFromDisk(fileName: String) {
+        fun loadTasBundleFromDisk(fileName: String) {
             try {
-                val file = File(context.filesDir, "$fileName.state")
+                val file = File(context.filesDir, "$fileName.tas")
                 if (!file.exists()) {
-                    runOnUiThread { binding.webView.evaluateJavascript("showToast('Nenhum save encontrado', true);", null) }
+                    runOnUiThread { binding.webView.evaluateJavascript("showToast('Nenhum TAS encontrado', true);", null) }
                     return
                 }
-                val bytes = file.readBytes()
-                val base64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
-                runOnUiThread { binding.webView.evaluateJavascript("receiveStateFromAndroid('$base64');", null) }
+                val jsonString = file.readText(Charset.defaultCharset())
+                // Escapa caracteres especiais para não quebrar o JS
+                val safeJson = jsonString.replace("'", "\\'")
+                
+                runOnUiThread { binding.webView.evaluateJavascript("receiveTasBundle('$safeJson');", null) }
             } catch (e: Exception) {
-                runOnUiThread { binding.webView.evaluateJavascript("showToast('Erro ao ler disco', true);", null) }
+                runOnUiThread { binding.webView.evaluateJavascript("showToast('Erro ao ler TAS', true);", null) }
             }
         }
         
         @JavascriptInterface
         fun onGameLoaded() {
             runOnUiThread {
-                if (isCrtEnabled) {
-                    binding.webView.evaluateJavascript("setScanlines(true);", null)
-                }
+                if (isCrtEnabled) binding.webView.evaluateJavascript("setScanlines(true);", null)
             }
         }
     }
@@ -78,10 +77,7 @@ class EmulatorActivity : AppCompatActivity() {
         setupWebView()
         setupControls()
 
-        // Pega configurações vindas do Menu
         isCrtEnabled = intent.getBooleanExtra("CRT_MODE", false)
-        
-        // Garante que a View XML esteja oculta (usaremos CSS)
         binding.scanlineOverlay.visibility = View.GONE
 
         val romUri = intent.data
@@ -128,7 +124,6 @@ class EmulatorActivity : AppCompatActivity() {
     @SuppressLint("ClickableViewAccessibility")
     private fun setupControls() {
         setupDpadSliding()
-
         mapButton(binding.btnA, "A")
         mapButton(binding.btnB, "B")
         mapButton(binding.btnX, "X")
@@ -137,12 +132,15 @@ class EmulatorActivity : AppCompatActivity() {
         mapButton(binding.btnR, "R")
         mapButton(binding.btnStart, "START")
         mapButton(binding.btnSelect, "SELECT")
-
-        // Botão Turbo: Envia comando "TURBO" (Espaço)
         mapButton(binding.btnTurbo, "TURBO")
 
-        binding.btnSaveState.setOnClickListener { binding.webView.evaluateJavascript("triggerSaveState();", null) }
-        binding.btnLoadState.setOnClickListener { binding.webView.evaluateJavascript("triggerLoadState();", null) }
+        // Botões de TAS e Save
+        binding.btnSaveState.setOnClickListener { binding.webView.evaluateJavascript("triggerTasSave();", null) }
+        binding.btnLoadState.setOnClickListener { binding.webView.evaluateJavascript("triggerTasLoad();", null) }
+        
+        binding.btnTasRec.setOnClickListener { binding.webView.evaluateJavascript("toggleRecording();", null) }
+        binding.btnTasPlay.setOnClickListener { binding.webView.evaluateJavascript("togglePlayback();", null) }
+        binding.btnTasStep.setOnClickListener { binding.webView.evaluateJavascript("frameAdvance();", null) }
     }
 
     @SuppressLint("ClickableViewAccessibility")
