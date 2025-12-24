@@ -38,9 +38,14 @@ class MainActivity : AppCompatActivity() {
         setupWebView()
         setupControls()
 
+        // Usamos um botão invisível ou um clique longo no Select para abrir arquivos, 
+        // ou você pode adicionar um botão de menu. Por enquanto, mantive o FAB.
         binding.fabLoadRom.setOnClickListener {
             filePickerLauncher.launch("*/*")
         }
+        
+        // Exibe o FAB brevemente para carregar o jogo
+        binding.fabLoadRom.visibility = View.VISIBLE
     }
 
     @SuppressLint("SetJavaScriptEnabled", "ClickableViewAccessibility")
@@ -50,33 +55,33 @@ class MainActivity : AppCompatActivity() {
             .build()
 
         binding.webView.apply {
-            // WEBVIEW PERFORMANCE SETTINGS
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
             settings.allowFileAccess = true
+            settings.mediaPlaybackRequiresUserGesture = false
             
-            // IMPORTANTE: Limpa cache para garantir que o novo HTML seja usado
+            // OTIMIZAÇÃO E LIMPEZA DE CACHE
             clearCache(true)
             settings.cacheMode = WebSettings.LOAD_NO_CACHE 
-            
-            // Renderização Hardware Máxima
             settings.setRenderPriority(WebSettings.RenderPriority.HIGH)
             setLayerType(View.LAYER_TYPE_HARDWARE, null)
             
-            // Remove scrollbars
             isVerticalScrollBarEnabled = false
             isHorizontalScrollBarEnabled = false
             
-            settings.mediaPlaybackRequiresUserGesture = false
-
-            webChromeClient = WebChromeClient()
+            webChromeClient = object : WebChromeClient() {
+                override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
+                    android.util.Log.d("WebView", consoleMessage?.message() ?: "")
+                    return true
+                }
+            }
             
             webViewClient = object : WebViewClient() {
                 override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?) 
                     = assetLoader.shouldInterceptRequest(request!!.url)
 
                 override fun onPageFinished(view: WebView?, url: String?) {
-                    hideSystemUI() // Garante tela cheia
+                    hideSystemUI()
                 }
             }
 
@@ -86,16 +91,34 @@ class MainActivity : AppCompatActivity() {
 
     @SuppressLint("ClickableViewAccessibility")
     private fun setupControls() {
+        // Direcionais
         mapButton(binding.btnUp, "UP")
         mapButton(binding.btnDown, "DOWN")
         mapButton(binding.btnLeft, "LEFT")
         mapButton(binding.btnRight, "RIGHT")
+        
+        // Ação
         mapButton(binding.btnA, "A")
         mapButton(binding.btnB, "B")
         mapButton(binding.btnX, "X")
         mapButton(binding.btnY, "Y")
+        
+        // Ombros (Novos)
+        mapButton(binding.btnL, "L")
+        mapButton(binding.btnR, "R")
+        
+        // Menu
         mapButton(binding.btnStart, "START")
         mapButton(binding.btnSelect, "SELECT")
+
+        // Save e Load State (Comandos especiais, não teclas)
+        binding.btnSaveState.setOnClickListener {
+            binding.webView.evaluateJavascript("triggerSaveState();", null)
+        }
+        
+        binding.btnLoadState.setOnClickListener {
+            binding.webView.evaluateJavascript("triggerLoadState();", null)
+        }
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -104,7 +127,6 @@ class MainActivity : AppCompatActivity() {
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
                     v.isPressed = true
-                    // Executa diretamente (sem delays)
                     binding.webView.evaluateJavascript("androidButtonEvent('$keyName', true);", null)
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
@@ -117,8 +139,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun loadRom(uri: Uri) {
-        binding.fabLoadRom.isEnabled = false
-        Toast.makeText(this, "Carregando...", Toast.LENGTH_SHORT).show()
+        // Esconde o botão de load para não atrapalhar o jogo
+        binding.fabLoadRom.visibility = View.GONE
+        Toast.makeText(this, "Carregando ROM...", Toast.LENGTH_SHORT).show()
 
         lifecycleScope.launch(Dispatchers.IO) {
             try {
@@ -139,7 +162,6 @@ class MainActivity : AppCompatActivity() {
                     val base64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
                     withContext(Dispatchers.Main) {
                         binding.webView.evaluateJavascript("launchGame('$base64', '$fileName');") {
-                            binding.fabLoadRom.isEnabled = true
                             hideSystemUI()
                         }
                     }
@@ -147,7 +169,7 @@ class MainActivity : AppCompatActivity() {
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
                     Toast.makeText(this@MainActivity, "Erro: ${e.message}", Toast.LENGTH_LONG).show()
-                    binding.fabLoadRom.isEnabled = true
+                    binding.fabLoadRom.visibility = View.VISIBLE
                 }
             }
         }
