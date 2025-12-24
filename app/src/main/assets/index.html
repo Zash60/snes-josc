@@ -11,21 +11,16 @@
             width: 100%;
             height: 100%;
             background-color: #000;
-            overflow: hidden; /* Evita barras de rolagem */
-            
-            /* Centraliza o Canvas na tela */
+            overflow: hidden;
             display: flex;
             justify-content: center;
             align-items: center;
         }
-
-        /* O Canvas deve ser o elemento principal agora */
         canvas#game-canvas {
             display: block;
             max-width: 100vw;
             max-height: 100vh;
-            /* Mantém a proporção correta (aspect ratio) */
-            object-fit: contain; 
+            object-fit: contain;
             outline: none;
         }
     </style>
@@ -34,7 +29,6 @@
 </head>
 <body>
 
-<!-- MUDANÇA PRINCIPAL: Usamos uma tag CANVAS em vez de DIV -->
 <canvas id="game-canvas"></canvas>
 
 <script>
@@ -42,38 +36,37 @@
 
     async function launchGame(base64Rom, fileName) {
         try {
-            console.log("Iniciando emulador...");
+            console.log("Processando ROM: " + fileName);
 
-            // 1. Limpeza se já houver jogo rodando
             if (nostalgistInstance) {
-                try {
-                    await nostalgistInstance.exit();
-                } catch (e) { console.warn("Erro ao sair da instância anterior", e); }
+                try { await nostalgistInstance.exit(); } catch (e) {}
                 nostalgistInstance = null;
             }
 
-            // 2. Preparar a ROM
+            // 1. Converter Base64 para Uint8Array
             const byteCharacters = atob(base64Rom);
             const byteNumbers = new Array(byteCharacters.length);
             for (let i = 0; i < byteCharacters.length; i++) {
                 byteNumbers[i] = byteCharacters.charCodeAt(i);
             }
             const byteArray = new Uint8Array(byteNumbers);
-            const romBlob = new Blob([byteArray], { type: 'application/octet-stream' });
 
-            // 3. Iniciar Nostalgist apontando para o CANVAS
+            // 2. CORREÇÃO: Criar um objeto 'File' real em vez de Blob genérico
+            // O Nostalgist moderno exige um File para saber o nome e extensão da ROM
+            const romFile = new File([byteArray], fileName, { type: 'application/octet-stream' });
+
+            // 3. Iniciar Nostalgist
             nostalgistInstance = await Nostalgist.launch({
-                element: '#game-canvas', // Agora aponta corretamente para um <canvas>
+                element: '#game-canvas',
                 core: 'snes9x',
-                rom: { 
-                    fileName: fileName, 
-                    fileData: romBlob 
-                },
+                rom: romFile, // Agora passamos o arquivo direto
+                
+                // CDN Configuration
                 resolveCoreJs: (core) => `https://unpkg.com/nostalgist@0.19.1/dist/cores/${core}.js`,
                 resolveCoreWasm: (core) => `https://unpkg.com/nostalgist@0.19.1/dist/cores/${core}.wasm`,
             });
             
-            console.log("Emulador iniciado!");
+            console.log("Emulador iniciado com sucesso!");
 
         } catch (e) {
             console.error("Erro fatal:", e);
