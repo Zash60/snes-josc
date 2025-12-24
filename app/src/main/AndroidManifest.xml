@@ -2,26 +2,38 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- Permissão de Internet (necessária se o emulador baixar cores dinamicamente ou para WebView) -->
     <uses-permission android:name="android.permission.INTERNET" />
 
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
-        android:icon="@android:drawable/sym_def_app_icon" 
+        android:icon="@android:drawable/sym_def_app_icon"
         android:label="@string/app_name"
         android:roundIcon="@android:drawable/sym_def_app_icon"
         android:supportsRtl="true"
         android:theme="@style/Theme.MySnesEmulator"
         android:usesCleartextTraffic="true"
+        android:hardwareAccelerated="true"
+        android:largeHeap="true"
         tools:targetApi="31">
-        
-        <!-- Note acima: Mudei android:icon e roundIcon para usar ícones do sistema -->
+
+        <!-- 
+           android:hardwareAccelerated="true": Essencial para performance do Canvas/WebGL.
+           android:largeHeap="true": Evita falta de memória ao carregar ROMs grandes em Base64.
+        -->
 
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:configChanges="orientation|screenSize|keyboardHidden">
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode|density">
+            
+            <!-- 
+               configChanges: Impede que a Activity (e o jogo) reinicie ao 
+               girar a tela ou abrir teclado.
+            -->
+
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
