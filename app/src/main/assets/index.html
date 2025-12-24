@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SNES Emulator</title>
+    <title>SNES Emulator 2005</title>
     <style>
         body, html {
             margin: 0;
@@ -11,112 +11,111 @@
             width: 100%;
             height: 100%;
             background-color: #000;
-            overflow: hidden;
+            overflow: hidden; /* Remove barras de rolagem */
         }
         canvas#game-canvas {
             display: block;
             width: 100%;
             height: 100%;
-            object-fit: contain;
-            image-rendering: pixelated; /* Crucial para nitidez e performance */
+            object-fit: contain; /* Ajusta mantendo proporção */
+            image-rendering: pixelated; /* Deixa os pixels nítidos (crucial para Retro) */
+            outline: none;
         }
-        /* Estilo do FPS */
-        #fps-counter {
+        #fps-display {
             position: absolute;
             top: 10px;
             left: 10px;
             color: #00FF00;
             font-family: monospace;
-            font-weight: bold;
-            font-size: 14px;
-            background: rgba(0, 0, 0, 0.5);
-            padding: 4px;
-            pointer-events: none;
-            z-index: 9999;
+            font-size: 16px;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 5px;
+            border-radius: 4px;
+            pointer-events: none; /* Deixa o clique passar através dele */
+            z-index: 100;
         }
     </style>
+    <!-- Nostalgist Lib -->
     <script src="/assets/nostalgist.umd.js"></script>
 </head>
 <body>
 
-<div id="fps-counter">FPS: 0</div>
+<!-- Contador de FPS -->
+<div id="fps-display">FPS: 0</div>
+
+<!-- Canvas do Jogo -->
 <canvas id="game-canvas" tabindex="1"></canvas>
 
 <script>
     let nostalgistInstance = null;
-    let canvas = document.getElementById('game-canvas');
+    const canvas = document.getElementById('game-canvas');
+    const fpsDisplay = document.getElementById('fps-display');
 
-    // --- LÓGICA DE FPS ---
-    const fpsElem = document.getElementById('fps-counter');
-    let lastTime = performance.now();
+    // --- Lógica de FPS ---
     let frameCount = 0;
-
+    let lastTime = performance.now();
     function updateFPS() {
         const now = performance.now();
         frameCount++;
         if (now - lastTime >= 1000) {
-            fpsElem.innerText = `FPS: ${frameCount}`;
+            fpsDisplay.textContent = `FPS: ${frameCount}`;
             frameCount = 0;
             lastTime = now;
         }
         requestAnimationFrame(updateFPS);
     }
-    requestAnimationFrame(updateFPS);
+    requestAnimationFrame(updateFPS); // Inicia contador
 
-    // --- MAPA DE TECLAS OTIMIZADO ---
-    // Mapeamento padrão do RetroArch Web (Snes9x)
+    // --- Mapeamento de Teclas para Snes9x 2005 ---
+    // O core 2005 geralmente segue o padrão RetroArch
     const keyMap = {
         'UP':    { code: 'ArrowUp',    key: 'ArrowUp',    keyCode: 38 },
         'DOWN':  { code: 'ArrowDown',  key: 'ArrowDown',  keyCode: 40 },
         'LEFT':  { code: 'ArrowLeft',  key: 'ArrowLeft',  keyCode: 37 },
         'RIGHT': { code: 'ArrowRight', key: 'ArrowRight', keyCode: 39 },
-        'A':     { code: 'KeyX',       key: 'x',          keyCode: 88 }, // SNES A = Tecla X
-        'B':     { code: 'KeyZ',       key: 'z',          keyCode: 90 }, // SNES B = Tecla Z
-        'X':     { code: 'KeyS',       key: 's',          keyCode: 83 }, // SNES X = Tecla S
-        'Y':     { code: 'KeyA',       key: 'a',          keyCode: 65 }, // SNES Y = Tecla A
+        'A':     { code: 'KeyX',       key: 'x',          keyCode: 88 }, // A do SNES
+        'B':     { code: 'KeyZ',       key: 'z',          keyCode: 90 }, // B do SNES
+        'X':     { code: 'KeyS',       key: 's',          keyCode: 83 }, // X do SNES
+        'Y':     { code: 'KeyA',       key: 'a',          keyCode: 65 }, // Y do SNES
         'START': { code: 'Enter',      key: 'Enter',      keyCode: 13 },
         'SELECT':{ code: 'ShiftRight', key: 'Shift',      keyCode: 16 }
     };
 
-    // --- SIMULADOR DE INPUT ROBUSTO ---
+    // Função chamada pelo Android (MainActivity.kt)
     function androidButtonEvent(btnName, isDown) {
-        const map = keyMap[btnName];
-        if (!map) return;
+        const mapping = keyMap[btnName];
+        if (!mapping) return;
 
-        // Garante que o canvas tem foco para receber o input
-        if (document.activeElement !== canvas) {
-            canvas.focus();
-        }
+        // Garante foco para o emulador receber o input
+        if (document.activeElement !== canvas) canvas.focus();
 
-        const eventType = isDown ? 'keydown' : 'keyup';
+        const eventName = isDown ? 'keydown' : 'keyup';
         
-        // Cria um evento completo para enganar o emulador
-        const event = new KeyboardEvent(eventType, {
+        // Cria evento de teclado completo para compatibilidade máxima
+        const event = new KeyboardEvent(eventName, {
             bubbles: true,
             cancelable: true,
             view: window,
-            key: map.key,
-            code: map.code,
-            keyCode: map.keyCode,
-            which: map.keyCode,
-            charCode: 0,
-            location: 0,
-            repeat: false
+            key: mapping.key,
+            code: mapping.code,
+            keyCode: mapping.keyCode,
+            which: mapping.keyCode,
         });
 
-        // Dispara no canvas e na janela (alguns cores ouvem window, outros canvas)
         canvas.dispatchEvent(event);
-        window.dispatchEvent(event);
+        window.dispatchEvent(event); // Alguns cores escutam na window
     }
 
-    // --- INICIALIZAÇÃO DO JOGO ---
     async function launchGame(base64Rom, fileName) {
         try {
+            console.log("Iniciando ROM: " + fileName);
+
             if (nostalgistInstance) {
                 await nostalgistInstance.exit();
+                nostalgistInstance = null;
             }
 
-            // Decodificação rápida
+            // Converter Base64 para Uint8Array
             const binaryString = atob(base64Rom);
             const len = binaryString.length;
             const bytes = new Uint8Array(len);
@@ -126,22 +125,35 @@
 
             const romFile = new File([bytes], fileName);
 
+            // Iniciar Nostalgist com Core 2005
             nostalgistInstance = await Nostalgist.launch({
                 element: canvas,
-                // DICA DE PERFORMANCE: Se estiver lento, tente mudar 'snes9x' para 'snes9x2005'
-                // (requer que o arquivo snes9x2005_libretro.js/.wasm exista na pasta assets)
-                core: 'snes9x', 
+                // MUDANÇA CRUCIAL PARA PERFORMANCE:
+                core: 'snes9x2005', 
                 rom: romFile,
+                
+                // Mapeia para os arquivos locais na pasta assets/cores/
                 resolveCoreJs: (core) => `/assets/cores/${core}_libretro.js`,
                 resolveCoreWasm: (core) => `/assets/cores/${core}_libretro.wasm`,
+                
+                // Configurações extras de estilo
+                style: {
+                    width: '100%',
+                    height: '100%',
+                    position: 'absolute',
+                    top: '0',
+                    left: '0'
+                }
             });
+
+            console.log("Emulador Snes9x2005 iniciado!");
             
-            // Força foco após carregar
-            setTimeout(() => canvas.focus(), 1000);
+            // Foca no canvas após iniciar
+            setTimeout(() => { canvas.focus(); }, 500);
 
         } catch (e) {
-            console.error(e);
-            alert("Erro: " + e.message);
+            console.error("Erro ao iniciar emulador:", e);
+            alert("Erro: " + e.message + "\nVerifique se os arquivos snes9x2005 estão na pasta assets/cores!");
         }
     }
 </script>
