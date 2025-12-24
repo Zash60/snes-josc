@@ -8,8 +8,8 @@
         body, html {
             margin: 0;
             padding: 0;
-            width: 100%;
-            height: 100%;
+            width: 100vw;
+            height: 100vh;
             background-color: #000;
             overflow: hidden;
             display: flex;
@@ -19,16 +19,20 @@
         #game-container {
             width: 100%;
             height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
+        /* Ajustes para garantir que o canvas ocupe a tela corretamente */
         canvas {
-            display: block;
-            width: 100% !important;
-            height: 100% !important;
-            object-fit: contain;
+            max-width: 100% !important;
+            max-height: 100% !important;
+            object-fit: contain !important;
+            outline: none !important;
         }
     </style>
-    <!-- Importa Nostalgist via CDN -->
-    <script src="https://unpkg.com/nostalgist@0.5.0/dist/nostalgist.umd.js"></script>
+    <!-- Versão mais recente (0.19.1) -->
+    <script src="https://unpkg.com/nostalgist@0.19.1/dist/nostalgist.umd.js"></script>
 </head>
 <body>
 
@@ -37,12 +41,18 @@
 <script>
     let nostalgistInstance = null;
 
-    // Função chamada pelo Kotlin para iniciar o jogo
     async function launchGame(base64Rom, fileName) {
         try {
-            console.log("Iniciando processo de carregamento...");
-            
-            // Converter Base64 para Blob
+            console.log("Preparando Nostalgist v0.19.1...");
+
+            // Se já houver uma instância rodando, encerra ela primeiro
+            if (nostalgistInstance) {
+                await nostalgistInstance.exit();
+                nostalgistInstance = null;
+                document.getElementById('game-container').innerHTML = '';
+            }
+
+            // Converter Base64 do Kotlin para Blob JS
             const byteCharacters = atob(base64Rom);
             const byteNumbers = new Array(byteCharacters.length);
             for (let i = 0; i < byteCharacters.length; i++) {
@@ -50,31 +60,31 @@
             }
             const byteArray = new Uint8Array(byteNumbers);
             const romBlob = new Blob([byteArray], { type: 'application/octet-stream' });
-            
-            // Se já houver uma instância, destrua-a (reload simples por segurança)
-            if (nostalgistInstance) {
-                // Nostalgist não tem um 'destroy' perfeito documentado, 
-                // recarregar a página é mais seguro para limpar memória WASM
-                window.location.reload();
-                return; 
-            }
 
-            // Iniciar Nostalgist
+            // Iniciar emulador
             nostalgistInstance = await Nostalgist.launch({
-                element: document.getElementById('game-container'),
-                core: 'snes9x', // Define o núcleo SNES
+                element: '#game-container', 
+                core: 'snes9x',
                 rom: { 
                     fileName: fileName, 
                     fileData: romBlob 
                 },
-                resolveCoreJs: (core) => `https://unpkg.com/nostalgist@0.5.0/dist/cores/${core}.js`,
-                resolveCoreWasm: (core) => `https://unpkg.com/nostalgist@0.5.0/dist/cores/${core}.wasm`,
+                // Atualizamos também os links dos Cores para a versão correspondente
+                resolveCoreJs: (core) => `https://unpkg.com/nostalgist@0.19.1/dist/cores/${core}.js`,
+                resolveCoreWasm: (core) => `https://unpkg.com/nostalgist@0.19.1/dist/cores/${core}.wasm`,
+                
+                style: {
+                    width: '100%',
+                    height: '100%',
+                    position: 'absolute',
+                    backgroundColor: 'black'
+                }
             });
             
-            console.log("Emulador iniciado com sucesso!");
+            console.log("Emulador iniciado!");
 
         } catch (e) {
-            console.error("Erro ao iniciar emulador:", e);
+            console.error("Erro no emulador:", e);
             alert("Erro: " + e.message);
         }
     }
