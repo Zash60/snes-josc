@@ -3,42 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SNES Pro Fixed</title>
+    <title>SNES TAS Pro</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; touch-action: none; user-select: none; -webkit-user-select: none; }
         body, html { width: 100%; height: 100%; background-color: #000; overflow: hidden; position: fixed; }
         
         canvas {
-            display: block;
-            width: 100vw !important;
-            height: 100vh !important;
-            object-fit: fill; 
-            image-rendering: pixelated;
+            display: block; width: 100vw !important; height: 100vh !important; object-fit: fill; image-rendering: pixelated;
         }
 
-        /* --- EFEITO CRT (SCANLINES) VIA CSS --- */
         .scanlines {
-            position: fixed;
-            left: 0; top: 0;
-            width: 100vw; height: 100vh;
-            /* Cria linhas horizontais alternadas */
-            background: linear-gradient(
-                to bottom,
-                rgba(255,255,255,0),
-                rgba(255,255,255,0) 50%,
-                rgba(0,0,0,0.4) 50%,
-                rgba(0,0,0,0.4)
-            );
-            background-size: 100% 4px; /* Grossura da linha */
-            pointer-events: none; /* Deixa o clique passar */
-            z-index: 10;
-            display: none; /* Escondido por padrão */
+            position: fixed; left: 0; top: 0; width: 100vw; height: 100vh;
+            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.4) 50%, rgba(0,0,0,0.4));
+            background-size: 100% 4px; pointer-events: none; z-index: 10; display: none;
         }
 
-        /* Notificações */
         #game-toast {
             position: absolute; top: 15%; left: 50%; transform: translateX(-50%);
-            background-color: rgba(0, 0, 0, 0.8); color: #fff; border: 1px solid #555;
+            background-color: rgba(30,30,30,0.9); color: #fff; border: 1px solid #555;
             padding: 10px 20px; border-radius: 20px; font-family: monospace; font-weight: bold;
             opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 9999;
         }
@@ -46,55 +28,114 @@
         #fps-overlay {
             position: absolute; top: 5px; left: 5px; color: #00FF00; font-family: monospace; font-size: 12px; pointer-events: none;
         }
+        
+        #tas-status {
+            position: absolute; top: 5px; right: 5px; color: #FF0000; font-family: monospace; font-size: 12px; pointer-events: none; display: none;
+        }
     </style>
     <script src="/assets/nostalgist.umd.js"></script>
 </head>
 <body>
 
 <div id="fps-overlay">FPS: 0</div>
+<div id="tas-status">● REC</div>
 <div id="game-toast">Info</div>
-<!-- Camada de Scanlines -->
 <div id="scanline-layer" class="scanlines"></div>
 <canvas id="game-canvas" tabindex="1"></canvas>
 
 <script>
     let nostalgistInstance = null;
     let currentRomName = "game"; 
+    
+    // --- VARIÁVEIS TAS ---
+    let tasInputs = [];    // Histórico: {f: 120, k: 'A', d: true}
+    let currentFrame = 0;  // Frame atual do jogo
+    let isRecording = false;
+    let isPlaying = false;
+    let isPaused = false;
 
     const canvas = document.getElementById('game-canvas');
     const toastElement = document.getElementById('game-toast');
-    const fpsElement = document.getElementById('fps-overlay');
-    const scanlineLayer = document.getElementById('scanline-layer');
+    const tasStatus = document.getElementById('tas-status');
 
-    // --- Função para Ativar/Desativar Scanlines (Chamada pelo Android) ---
-    function setScanlines(enable) {
-        if (enable) {
-            scanlineLayer.style.display = "block";
-        } else {
-            scanlineLayer.style.display = "none";
-        }
-    }
-
-    // --- Toast UI ---
-    let toastTimeout;
     function showToast(msg, isError = false) {
         toastElement.innerText = msg;
         toastElement.style.color = isError ? "#FF5555" : "#FFFFFF";
         toastElement.style.opacity = "1";
-        clearTimeout(toastTimeout);
-        toastTimeout = setTimeout(() => { toastElement.style.opacity = "0"; }, 2500);
+        setTimeout(() => { toastElement.style.opacity = "0"; }, 2500);
     }
 
-    // --- FPS ---
-    let frameCount = 0; let lastTime = performance.now();
-    function loopFPS() {
-        const now = performance.now(); frameCount++;
-        if (now - lastTime >= 1000) { fpsElement.innerText = "FPS: " + frameCount; frameCount = 0; lastTime = now; }
-        requestAnimationFrame(loopFPS);
+    // --- GAME LOOP & FRAME COUNTER ---
+    function gameLoop() {
+        if (nostalgistInstance && !isPaused) {
+            currentFrame++;
+            
+            // Se estiver em Playback, injeta os inputs deste frame
+            if (isPlaying) {
+                // Filtra inputs que acontecem neste frame exato
+                const inputsNow = tasInputs.filter(i => i.f === currentFrame);
+                inputsNow.forEach(i => simulateKey(i.k, i.d));
+                
+                // Se acabou os inputs gravados, para o playback
+                if (inputsNow.length === 0 && currentFrame > tasInputs[tasInputs.length-1]?.f + 60) {
+                     // Espera 1 segundo de silêncio antes de parar
+                     // isPlaying = false; 
+                }
+            }
+        }
+        requestAnimationFrame(gameLoop);
     }
-    requestAnimationFrame(loopFPS);
+    requestAnimationFrame(gameLoop);
 
-    // --- Controls ---
+    // --- CONTROLES TAS ---
+
+    function toggleRecording() {
+        if (isPlaying) { isPlaying = false; showToast("Playback Parado"); }
+        isRecording = !isRecording;
+        tasStatus.style.display = isRecording ? "block" : "none";
+        
+        if (isRecording) {
+            // Se estamos no frame 0, limpa tudo. Se estamos no meio do jogo, mantemos o passado (Rerecord)
+            if (currentFrame < 100) tasInputs = []; 
+            showToast("🔴 GRAVANDO TAS...");
+        } else {
+            showToast("Gravação Finalizada.");
+        }
+    }
+
+    function togglePlayback() {
+        if (isRecording) toggleRecording(); // Para gravação
+        isPlaying = !isPlaying;
+        if (isPlaying) {
+            // Reseta para o começo (Frame 0) exige Reload do jogo geralmente,
+            // mas aqui assumimos que o usuário vai dar Load State no frame 0
+            showToast("🟢 REPRODUZINDO... (Carregue o Save Frame 0)");
+        } else {
+            showToast("Playback Parado.");
+        }
+    }
+    
+    async function frameAdvance() {
+        if (!nostalgistInstance) return;
+        // Simula frame advance pausando e despausando rapidamente
+        // Nostalgist não tem frame advance nativo exposto facilmente,
+        // então usamos pausa.
+        if (!isPaused) {
+            await nostalgistInstance.pause();
+            isPaused = true;
+            showToast("Pausado (Modo Step)");
+        } else {
+            // Avança 1 frame (aprox 16ms)
+            await nostalgistInstance.resume();
+            setTimeout(async () => {
+                await nostalgistInstance.pause();
+            }, 16); 
+            // Atualiza contador manual
+            currentFrame++;
+        }
+    }
+
+    // --- INPUT HANDLER COM GRAVAÇÃO ---
     const keyMap = {
         'UP': {code:'ArrowUp', key:'ArrowUp', keyCode:38},
         'DOWN': {code:'ArrowDown', key:'ArrowDown', keyCode:40},
@@ -108,14 +149,26 @@
         'R': {code:'KeyW', key:'w', keyCode:87},
         'START': {code:'Enter', key:'Enter', keyCode:13},
         'SELECT': {code:'ShiftRight', key:'Shift', keyCode:16},
-        // Mapeamento do Turbo (Espaço)
-        'TURBO': {code:'Space', key:' ', keyCode:32} 
+        'TURBO': {code:'Space', key:' ', keyCode:32}
     };
 
     function androidButtonEvent(btn, isDown) {
-        const m = keyMap[btn]; if(!m) return;
-        if(document.activeElement !== canvas) canvas.focus();
+        // 1. Grava o Input se estiver gravando
+        if (isRecording) {
+            tasInputs.push({
+                f: currentFrame, // Salva o frame atual
+                k: btn,
+                d: isDown
+            });
+        }
         
+        // 2. Executa o Input (mesmo em playback, para permitir intervenção)
+        simulateKey(btn, isDown);
+    }
+
+    function simulateKey(btnName, isDown) {
+        const m = keyMap[btnName]; if(!m) return;
+        if(document.activeElement !== canvas) canvas.focus();
         const evt = new KeyboardEvent(isDown?'keydown':'keyup', {
             bubbles:true, cancelable:true, view:window,
             key:m.key, code:m.code, keyCode:m.keyCode, which:m.keyCode
@@ -123,43 +176,80 @@
         canvas.dispatchEvent(evt); window.dispatchEvent(evt);
     }
 
-    // --- SAVE / LOAD ---
-    async function triggerSaveState() {
+    // --- SAVE / LOAD BUNDLE (Estado + TAS) ---
+
+    async function triggerTasSave() {
         if (!nostalgistInstance) return showToast("Sem jogo!", true);
         try {
-            showToast("Salvando...");
-            let result = await nostalgistInstance.saveState();
-            let finalBlob = result instanceof Blob ? result : (result.state instanceof Blob ? result.state : new Blob([result.state || result]));
+            showToast("Salvando TAS Bundle...");
             
+            // 1. Pega o estado binário do emulador
+            let result = await nostalgistInstance.saveState();
+            let blob = result instanceof Blob ? result : (result.state instanceof Blob ? result.state : new Blob([result.state || result]));
+            
+            // 2. Converte para Base64
             const reader = new FileReader();
-            reader.readAsDataURL(finalBlob); 
+            reader.readAsDataURL(blob); 
             reader.onloadend = function() {
-                if (window.AndroidInterface) window.AndroidInterface.saveStateToDisk(reader.result, currentRomName);
+                // 3. Cria o pacote JSON
+                const bundle = {
+                    stateData: reader.result, // O save state
+                    inputs: tasInputs,        // O histórico TAS
+                    frame: currentFrame       // O momento exato
+                };
+                
+                // 4. Envia para Android
+                if (window.AndroidInterface) {
+                    window.AndroidInterface.saveTasBundleToDisk(JSON.stringify(bundle), currentRomName);
+                }
             };
         } catch (e) { showToast("Erro Save: " + e.message, true); }
     }
 
-    function triggerLoadState() {
-        if (!nostalgistInstance) return showToast("Sem jogo!", true);
-        showToast("Buscando Save...");
-        if (window.AndroidInterface) window.AndroidInterface.loadStateFromDisk(currentRomName);
-    }
-
-    async function receiveStateFromAndroid(base64Data) {
+    // Chamado pelo Android com o JSON lido do disco
+    async function receiveTasBundle(jsonString) {
         try {
-            showToast("Carregando...");
-            const res = await fetch("data:application/octet-stream;base64," + base64Data);
+            showToast("Carregando TAS Bundle...");
+            const bundle = JSON.parse(jsonString);
+            
+            // 1. Restaura o TAS
+            tasInputs = bundle.inputs;
+            currentFrame = bundle.frame;
+            
+            // LÓGICA DE RERECORDING:
+            // Se estivermos gravando, cortamos qualquer input que exista APÓS este frame
+            // Isso permite corrigir erros: volta o save, e grava por cima do futuro
+            if (isRecording) {
+                tasInputs = tasInputs.filter(i => i.f <= currentFrame);
+                showToast("Rerecord: Futuro apagado.");
+            }
+            
+            // 2. Restaura o Emulador
+            const res = await fetch(bundle.stateData);
             const blob = await res.blob();
             await nostalgistInstance.loadState(blob);
-            showToast("Carregado!");
-        } catch (e) { showToast("Erro Load", true); }
+            
+            showToast("Carregado! Frame: " + currentFrame);
+            
+        } catch (e) {
+            console.error(e);
+            showToast("Erro Bundle", true);
+        }
     }
 
-    // --- Launch ---
+    function triggerTasLoad() {
+        if (window.AndroidInterface) window.AndroidInterface.loadTasBundleFromDisk(currentRomName);
+    }
+
+    function setScanlines(enable) {
+        document.getElementById('scanline-layer').style.display = enable ? "block" : "none";
+    }
+
     async function launchGame(romBase64, fileName) {
         try {
             if (nostalgistInstance) { await nostalgistInstance.exit(); nostalgistInstance = null; }
             currentRomName = fileName.replace(/\.[^/.]+$/, "");
+            tasInputs = []; currentFrame = 0; isRecording = false; isPlaying = false; isPaused = false;
             
             const bin = atob(romBase64);
             const bytes = new Uint8Array(bin.length);
@@ -173,9 +263,7 @@
                 resolveCoreJs: (c) => `/assets/cores/${c}_libretro.js`,
                 resolveCoreWasm: (c) => `/assets/cores/${c}_libretro.wasm`,
                 retroarchConfig: {
-                    // CONFIGURAÇÃO DO TURBO (FAST FORWARD)
-                    input_hold_fast_forward: "space", // Define espaço como turbo
-                    
+                    input_hold_fast_forward: "space",
                     video_scale_integer: "false",
                     video_aspect_ratio_auto: "true",
                     video_smooth: "false",
@@ -183,15 +271,10 @@
                     video_threaded: "true"
                 }
             });
-            setTimeout(() => canvas.focus(), 500);
-            showToast("Jogo Iniciado!");
-            
-            // Avisa o Android que o jogo carregou (para aplicar CRT se necessário)
+            setTimeout(() => { canvas.focus(); }, 500);
             if(window.AndroidInterface) window.AndroidInterface.onGameLoaded();
-
-        } catch (e) {
-            showToast("Erro: " + e.message, true);
-        }
+            showToast("Jogo Iniciado!");
+        } catch (e) { showToast("Erro: " + e.message, true); }
     }
 </script>
 </body>
