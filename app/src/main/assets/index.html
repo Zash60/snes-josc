@@ -16,31 +16,35 @@
             image-rendering: pixelated;
         }
 
+        /* --- EFEITO CRT (SCANLINES) VIA CSS --- */
+        .scanlines {
+            position: fixed;
+            left: 0; top: 0;
+            width: 100vw; height: 100vh;
+            /* Cria linhas horizontais alternadas */
+            background: linear-gradient(
+                to bottom,
+                rgba(255,255,255,0),
+                rgba(255,255,255,0) 50%,
+                rgba(0,0,0,0.4) 50%,
+                rgba(0,0,0,0.4)
+            );
+            background-size: 100% 4px; /* Grossura da linha */
+            pointer-events: none; /* Deixa o clique passar */
+            z-index: 10;
+            display: none; /* Escondido por padrão */
+        }
+
+        /* Notificações */
         #game-toast {
-            position: absolute;
-            top: 20%;
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: rgba(30, 30, 30, 0.95);
-            color: #fff;
-            padding: 12px 24px;
-            border-radius: 25px;
-            font-family: sans-serif;
-            font-weight: bold;
-            font-size: 16px;
-            opacity: 0;
-            transition: opacity 0.3s;
-            pointer-events: none;
-            z-index: 9999;
-            border: 1px solid #777;
-            text-align: center;
+            position: absolute; top: 15%; left: 50%; transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.8); color: #fff; border: 1px solid #555;
+            padding: 10px 20px; border-radius: 20px; font-family: monospace; font-weight: bold;
+            opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 9999;
         }
 
         #fps-overlay {
-            position: absolute;
-            top: 5px; left: 5px; color: #00FF00;
-            font-family: monospace; font-size: 12px;
-            pointer-events: none;
+            position: absolute; top: 5px; left: 5px; color: #00FF00; font-family: monospace; font-size: 12px; pointer-events: none;
         }
     </style>
     <script src="/assets/nostalgist.umd.js"></script>
@@ -49,6 +53,8 @@
 
 <div id="fps-overlay">FPS: 0</div>
 <div id="game-toast">Info</div>
+<!-- Camada de Scanlines -->
+<div id="scanline-layer" class="scanlines"></div>
 <canvas id="game-canvas" tabindex="1"></canvas>
 
 <script>
@@ -58,13 +64,22 @@
     const canvas = document.getElementById('game-canvas');
     const toastElement = document.getElementById('game-toast');
     const fpsElement = document.getElementById('fps-overlay');
+    const scanlineLayer = document.getElementById('scanline-layer');
+
+    // --- Função para Ativar/Desativar Scanlines (Chamada pelo Android) ---
+    function setScanlines(enable) {
+        if (enable) {
+            scanlineLayer.style.display = "block";
+        } else {
+            scanlineLayer.style.display = "none";
+        }
+    }
 
     // --- Toast UI ---
     let toastTimeout;
     function showToast(msg, isError = false) {
         toastElement.innerText = msg;
         toastElement.style.color = isError ? "#FF5555" : "#FFFFFF";
-        toastElement.style.borderColor = isError ? "#FF5555" : "#777";
         toastElement.style.opacity = "1";
         clearTimeout(toastTimeout);
         toastTimeout = setTimeout(() => { toastElement.style.opacity = "0"; }, 2500);
@@ -92,11 +107,15 @@
         'L': {code:'KeyQ', key:'q', keyCode:81},
         'R': {code:'KeyW', key:'w', keyCode:87},
         'START': {code:'Enter', key:'Enter', keyCode:13},
-        'SELECT': {code:'ShiftRight', key:'Shift', keyCode:16}
+        'SELECT': {code:'ShiftRight', key:'Shift', keyCode:16},
+        // Mapeamento do Turbo (Espaço)
+        'TURBO': {code:'Space', key:' ', keyCode:32} 
     };
+
     function androidButtonEvent(btn, isDown) {
         const m = keyMap[btn]; if(!m) return;
         if(document.activeElement !== canvas) canvas.focus();
+        
         const evt = new KeyboardEvent(isDown?'keydown':'keyup', {
             bubbles:true, cancelable:true, view:window,
             key:m.key, code:m.code, keyCode:m.keyCode, which:m.keyCode
@@ -104,91 +123,42 @@
         canvas.dispatchEvent(evt); window.dispatchEvent(evt);
     }
 
-    // --- SAVE STATE (CORREÇÃO AQUI) ---
+    // --- SAVE / LOAD ---
     async function triggerSaveState() {
         if (!nostalgistInstance) return showToast("Sem jogo!", true);
         try {
-            showToast("Gerando Save...");
-            
-            // 1. Obtém o resultado do save
+            showToast("Salvando...");
             let result = await nostalgistInstance.saveState();
+            let finalBlob = result instanceof Blob ? result : (result.state instanceof Blob ? result.state : new Blob([result.state || result]));
             
-            // 2. CORREÇÃO: Verifica o tipo de dado recebido
-            let finalBlob = null;
-
-            if (result instanceof Blob) {
-                // Se já for Blob, usa direto
-                finalBlob = result;
-            } else if (result.state) {
-                // Se for um objeto { state: Blob, thumbnail: ... }
-                // Alguns cores retornam um objeto complexo
-                if (result.state instanceof Blob) {
-                    finalBlob = result.state;
-                } else {
-                    // Se o .state for Uint8Array
-                    finalBlob = new Blob([result.state]);
-                }
-            } else {
-                // Se for apenas Uint8Array (Buffer bruto)
-                finalBlob = new Blob([result]);
-            }
-
-            // 3. Converte Blob para Base64
             const reader = new FileReader();
             reader.readAsDataURL(finalBlob); 
-            
             reader.onloadend = function() {
-                const base64data = reader.result;
-                // Envia para o Kotlin salvar no arquivo
-                if (window.AndroidInterface) {
-                    window.AndroidInterface.saveStateToDisk(base64data, currentRomName);
-                } else {
-                    showToast("Interface Android desconectada", true);
-                }
+                if (window.AndroidInterface) window.AndroidInterface.saveStateToDisk(reader.result, currentRomName);
             };
-            
-            reader.onerror = function() {
-                showToast("Erro ao ler Blob", true);
-            };
-
-        } catch (e) {
-            console.error(e);
-            showToast("Erro JS: " + e.message, true);
-        }
+        } catch (e) { showToast("Erro Save: " + e.message, true); }
     }
 
-    // --- LOAD STATE ---
     function triggerLoadState() {
         if (!nostalgistInstance) return showToast("Sem jogo!", true);
         showToast("Buscando Save...");
-        if (window.AndroidInterface) {
-            window.AndroidInterface.loadStateFromDisk(currentRomName);
-        } else {
-             showToast("Interface Android desconectada", true);
-        }
+        if (window.AndroidInterface) window.AndroidInterface.loadStateFromDisk(currentRomName);
     }
 
-    // Chamado pelo Kotlin quando o arquivo é lido
     async function receiveStateFromAndroid(base64Data) {
         try {
-            showToast("Aplicando Save...");
+            showToast("Carregando...");
             const res = await fetch("data:application/octet-stream;base64," + base64Data);
             const blob = await res.blob();
-            
             await nostalgistInstance.loadState(blob);
-            showToast("Carregado com Sucesso!");
-        } catch (e) {
-            showToast("Save inválido ou corrompido", true);
-            console.error(e);
-        }
+            showToast("Carregado!");
+        } catch (e) { showToast("Erro Load", true); }
     }
 
     // --- Launch ---
     async function launchGame(romBase64, fileName) {
         try {
             if (nostalgistInstance) { await nostalgistInstance.exit(); nostalgistInstance = null; }
-            
-            // Limpa extensão do nome para usar no save
             currentRomName = fileName.replace(/\.[^/.]+$/, "");
             
             const bin = atob(romBase64);
@@ -203,6 +173,9 @@
                 resolveCoreJs: (c) => `/assets/cores/${c}_libretro.js`,
                 resolveCoreWasm: (c) => `/assets/cores/${c}_libretro.wasm`,
                 retroarchConfig: {
+                    // CONFIGURAÇÃO DO TURBO (FAST FORWARD)
+                    input_hold_fast_forward: "space", // Define espaço como turbo
+                    
                     video_scale_integer: "false",
                     video_aspect_ratio_auto: "true",
                     video_smooth: "false",
@@ -212,10 +185,14 @@
             });
             setTimeout(() => canvas.focus(), 500);
             showToast("Jogo Iniciado!");
+            
+            // Avisa o Android que o jogo carregou (para aplicar CRT se necessário)
+            if(window.AndroidInterface) window.AndroidInterface.onGameLoaded();
+
         } catch (e) {
             showToast("Erro: " + e.message, true);
         }
     }
 </script>
 </body>
-    </html>
+</html>
