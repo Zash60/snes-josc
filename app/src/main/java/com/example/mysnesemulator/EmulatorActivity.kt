@@ -2,6 +2,7 @@ package com.example.mysnesemulator
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.net.Uri // <--- ESTA LINHA ESTAVA FALTANDO
 import android.os.Build
 import android.os.Bundle
 import android.util.Base64
@@ -13,7 +14,7 @@ import android.webkit.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.webkit.WebViewAssetLoader
-import com.example.mysnesemulator.databinding.ActivityEmulatorBinding // Usa o layout do jogo
+import com.example.mysnesemulator.databinding.ActivityEmulatorBinding
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -25,6 +26,7 @@ class EmulatorActivity : AppCompatActivity() {
     private lateinit var binding: ActivityEmulatorBinding
     private lateinit var assetLoader: WebViewAssetLoader
 
+    // Interface para comunicação JS <-> Android (Save/Load)
     inner class WebAppInterface(private val context: Context) {
         @JavascriptInterface
         fun saveStateToDisk(base64Data: String, fileName: String) {
@@ -65,9 +67,11 @@ class EmulatorActivity : AppCompatActivity() {
         setupWebView()
         setupControls()
 
+        // 1. Aplica efeito CRT se selecionado no Menu
         val useCrt = intent.getBooleanExtra("CRT_MODE", false)
         binding.scanlineOverlay.visibility = if (useCrt) View.VISIBLE else View.GONE
 
+        // 2. Carrega a ROM vinda do Menu
         val romUri = intent.data
         val romName = intent.getStringExtra("ROM_NAME") ?: "game.sfc"
         if (romUri != null) {
@@ -122,6 +126,7 @@ class EmulatorActivity : AppCompatActivity() {
         mapButton(binding.btnStart, "START")
         mapButton(binding.btnSelect, "SELECT")
 
+        // Botão Turbo: Envia tecla ESPAÇO (KeyCode 32)
         binding.btnTurbo.setOnTouchListener { v, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
@@ -195,6 +200,7 @@ class EmulatorActivity : AppCompatActivity() {
         binding.webView.evaluateJavascript("androidButtonEvent('$key', $isDown);", null)
     }
 
+    // AQUI OCORRIA O ERRO: AGORA A CLASSE Uri FOI IMPORTADA
     private fun loadRom(uri: Uri, fileName: String) {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
@@ -212,6 +218,7 @@ class EmulatorActivity : AppCompatActivity() {
                     }
                 }
             } catch (e: Exception) {
+                // Erro silencioso ou log
             }
         }
     }
