@@ -1,308 +1,89 @@
 package com.example.mysnesemulator
 
-import android.annotation.SuppressLint
-import android.content.Context
+import android.content.Intent
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
-import android.util.Base64
-import android.view.MotionEvent
+import android.view.LayoutInflater
 import android.view.View
-import android.view.WindowInsets
-import android.view.WindowInsetsController
-import android.webkit.*
-import android.widget.Toast
+import android.view.ViewGroup
+import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import androidx.lifecycle.lifecycleScope
-import androidx.webkit.WebViewAssetLoader
+import androidx.documentfile.provider.DocumentFile
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.example.mysnesemulator.databinding.ActivityMainBinding
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.io.File
-import java.io.FileOutputStream
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
-    private lateinit var assetLoader: WebViewAssetLoader
+    private val romList = mutableListOf<DocumentFile>()
 
-    // === INTERFACE JS <-> ANDROID (SAVE/LOAD DISCO) ===
-    inner class WebAppInterface(private val context: Context) {
-        
-        @JavascriptInterface
-        fun saveStateToDisk(base64Data: String, fileName: String) {
-            try {
-                // Limpa cabeçalho se houver e decodifica
-                val cleanBase64 = if (base64Data.contains(",")) base64Data.split(",")[1] else base64Data
-                val bytes = Base64.decode(cleanBase64, Base64.DEFAULT)
-                
-                // Salva no armazenamento interno do app
-                val file = File(context.filesDir, "$fileName.state")
-                FileOutputStream(file).use { it.write(bytes) }
-                
-                runOnUiThread {
-                    binding.webView.evaluateJavascript("showToast('Salvo no Android!');", null)
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-                runOnUiThread {
-                    binding.webView.evaluateJavascript("showToast('Erro ao gravar disco', true);", null)
-                }
-            }
-        }
-
-        @JavascriptInterface
-        fun loadStateFromDisk(fileName: String) {
-            try {
-                val file = File(context.filesDir, "$fileName.state")
-                if (!file.exists()) {
-                    runOnUiThread {
-                        binding.webView.evaluateJavascript("showToast('Nenhum save para este jogo', true);", null)
-                    }
-                    return
-                }
-
-                val bytes = file.readBytes()
-                val base64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
-                
-                // Envia para o HTML
-                runOnUiThread {
-                    binding.webView.evaluateJavascript("receiveStateFromAndroid('$base64');", null)
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-                runOnUiThread {
-                    binding.webView.evaluateJavascript("showToast('Erro ao ler disco', true);", null)
-                }
-            }
+    private val folderPicker = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        uri?.let {
+            contentResolver.takePersistableUriPermission(it, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            scanFolder(it)
         }
     }
-
-    private val filePickerLauncher = registerForActivityResult(
-        ActivityResultContracts.GetContent()
-    ) { uri -> uri?.let { loadRom(it) } }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        hideSystemUI()
-        setupWebView()
-        setupControls()
+        binding.recyclerRoms.layoutManager = LinearLayoutManager(this)
+        binding.recyclerRoms.adapter = RomAdapter(romList) { uri, name ->
+            launchEmulator(uri, name)
+        }
 
-        binding.fabLoadRom.setOnClickListener {
-            filePickerLauncher.launch("*/*")
+        binding.btnSelectFolder.setOnClickListener {
+            folderPicker.launch(null)
         }
     }
 
-    @SuppressLint("SetJavaScriptEnabled", "ClickableViewAccessibility")
-    private fun setupWebView() {
-        assetLoader = WebViewAssetLoader.Builder()
-            .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
-            .build()
-
-        binding.webView.apply {
-            settings.javaScriptEnabled = true
-            settings.domStorageEnabled = true
-            settings.allowFileAccess = true
-            settings.mediaPlaybackRequiresUserGesture = false
-            
-            // Registra a interface para o HTML chamar
-            addJavascriptInterface(WebAppInterface(this@MainActivity), "AndroidInterface")
-
-            // Performance Máxima
-            clearCache(true)
-            settings.cacheMode = WebSettings.LOAD_NO_CACHE 
-            settings.setRenderPriority(WebSettings.RenderPriority.HIGH)
-            setLayerType(View.LAYER_TYPE_HARDWARE, null)
-            
-            isVerticalScrollBarEnabled = false
-            isHorizontalScrollBarEnabled = false
-            
-            webChromeClient = WebChromeClient()
-            webViewClient = object : WebViewClient() {
-                override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?) 
-                    = assetLoader.shouldInterceptRequest(request!!.url)
-
-                override fun onPageFinished(view: WebView?, url: String?) {
-                    hideSystemUI()
-                }
-            }
-
-            loadUrl("https://appassets.androidplatform.net/assets/index.html")
-        }
-    }
-
-    @SuppressLint("ClickableViewAccessibility")
-    private fun setupControls() {
-        // === D-PAD DESLIZANTE ===
-        setupDpadSliding()
-
-        // === BOTÕES DE AÇÃO (Toque Simples) ===
-        mapButton(binding.btnA, "A")
-        mapButton(binding.btnB, "B")
-        mapButton(binding.btnX, "X")
-        mapButton(binding.btnY, "Y")
-        mapButton(binding.btnL, "L")
-        mapButton(binding.btnR, "R")
-        mapButton(binding.btnStart, "START")
-        mapButton(binding.btnSelect, "SELECT")
-
-        // === SAVE / LOAD ===
-        binding.btnSaveState.setOnClickListener {
-            binding.webView.evaluateJavascript("triggerSaveState();", null)
-        }
-        binding.btnLoadState.setOnClickListener {
-            binding.webView.evaluateJavascript("triggerLoadState();", null)
-        }
-    }
-
-    // Lógica para detectar deslize no D-PAD
-    @SuppressLint("ClickableViewAccessibility")
-    private fun setupDpadSliding() {
-        var lastUp = false
-        var lastDown = false
-        var lastLeft = false
-        var lastRight = false
-
-        binding.dpadContainer.setOnTouchListener { view, event ->
-            val w = view.width.toFloat()
-            val h = view.height.toFloat()
-            val x = event.x
-            val y = event.y
-
-            // Divide a área em 3x3
-            // Esquerda < 33% | Direita > 66%
-            val isLeft = x < (w / 3)
-            val isRight = x > (w * 2 / 3)
-            // Cima < 33% | Baixo > 66%
-            val isUp = y < (h / 3)
-            val isDown = y > (h * 2 / 3)
-
-            when (event.action) {
-                MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
-                    // Esquerda
-                    if (isLeft != lastLeft) {
-                        sendInputToJs("LEFT", isLeft)
-                        binding.btnLeft.isPressed = isLeft // Feedback visual
-                        lastLeft = isLeft
-                    }
-                    // Direita (com proteção contra esquerda+direita simultâneos)
-                    if (isRight != lastRight && !isLeft) {
-                        sendInputToJs("RIGHT", isRight)
-                        binding.btnRight.isPressed = isRight
-                        lastRight = isRight
-                    } else if (isLeft && lastRight) {
-                        sendInputToJs("RIGHT", false)
-                        binding.btnRight.isPressed = false
-                        lastRight = false
-                    }
-
-                    // Cima
-                    if (isUp != lastUp) {
-                        sendInputToJs("UP", isUp)
-                        binding.btnUp.isPressed = isUp
-                        lastUp = isUp
-                    }
-                    // Baixo (com proteção)
-                    if (isDown != lastDown && !isUp) {
-                        sendInputToJs("DOWN", isDown)
-                        binding.btnDown.isPressed = isDown
-                        lastDown = isDown
-                    } else if (isUp && lastDown) {
-                        sendInputToJs("DOWN", false)
-                        binding.btnDown.isPressed = false
-                        lastDown = false
-                    }
-                }
-
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    // Soltou: desliga tudo
-                    if (lastLeft) { sendInputToJs("LEFT", false); binding.btnLeft.isPressed = false }
-                    if (lastRight) { sendInputToJs("RIGHT", false); binding.btnRight.isPressed = false }
-                    if (lastUp) { sendInputToJs("UP", false); binding.btnUp.isPressed = false }
-                    if (lastDown) { sendInputToJs("DOWN", false); binding.btnDown.isPressed = false }
-                    
-                    lastLeft = false; lastRight = false; lastUp = false; lastDown = false
-                }
-            }
-            true // Consome o evento (drag)
-        }
-    }
-
-    // Helper para botões simples
-    @SuppressLint("ClickableViewAccessibility")
-    private fun mapButton(view: View, keyName: String) {
-        view.setOnTouchListener { v, event ->
-            when (event.action) {
-                MotionEvent.ACTION_DOWN -> {
-                    v.isPressed = true
-                    sendInputToJs(keyName, true)
-                }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    v.isPressed = false
-                    sendInputToJs(keyName, false)
-                }
-            }
-            true
-        }
-    }
-
-    private fun sendInputToJs(key: String, isDown: Boolean) {
-        binding.webView.evaluateJavascript("androidButtonEvent('$key', $isDown);", null)
-    }
-
-    private fun loadRom(uri: Uri) {
-        Toast.makeText(this, "Carregando...", Toast.LENGTH_SHORT).show()
-        lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                val contentResolver = applicationContext.contentResolver
-                var fileName = "game.sfc"
-                contentResolver.query(uri, null, null, null, null)?.use {
-                    if (it.moveToFirst()) {
-                        val idx = it.getColumnIndex("_display_name")
-                        if (idx != -1) fileName = it.getString(idx)
-                    }
-                }
-                val stream = contentResolver.openInputStream(uri)
-                val bytes = stream?.readBytes()
-                stream?.close()
-
-                if (bytes != null) {
-                    val base64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
-                    withContext(Dispatchers.Main) {
-                        binding.webView.evaluateJavascript("launchGame('$base64', '$fileName');") {
-                            hideSystemUI()
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(this@MainActivity, "Erro: ${e.message}", Toast.LENGTH_LONG).show()
-                }
+    private fun scanFolder(treeUri: Uri) {
+        val pickedDir = DocumentFile.fromTreeUri(this, treeUri)
+        romList.clear()
+        
+        pickedDir?.listFiles()?.forEach { file ->
+            val name = file.name?.lowercase() ?: ""
+            if (name.endsWith(".smc") || name.endsWith(".sfc") || name.endsWith(".zip")) {
+                romList.add(file)
             }
         }
+        binding.recyclerRoms.adapter?.notifyDataSetChanged()
     }
 
-    private fun hideSystemUI() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            window.insetsController?.let {
-                it.hide(WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars())
-                it.systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            }
-        } else {
-            @Suppress("DEPRECATION")
-            window.decorView.systemUiVisibility = (
-                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-                or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                or View.SYSTEM_UI_FLAG_FULLSCREEN
-            )
+    private fun launchEmulator(uri: Uri, name: String) {
+        // Inicia a Activity do Jogo
+        val intent = Intent(this, EmulatorActivity::class.java)
+        intent.data = uri
+        intent.putExtra("ROM_NAME", name)
+        intent.putExtra("CRT_MODE", binding.switchCrt.isChecked)
+        startActivity(intent)
+    }
+
+    class RomAdapter(
+        private val list: List<DocumentFile>,
+        private val onClick: (Uri, String) -> Unit
+    ) : RecyclerView.Adapter<RomAdapter.Holder>() {
+
+        class Holder(val view: View) : RecyclerView.ViewHolder(view)
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): Holder {
+            val view = LayoutInflater.from(parent.context).inflate(R.layout.item_rom, parent, false)
+            return Holder(view)
         }
+
+        override fun onBindViewHolder(holder: Holder, position: Int) {
+            val file = list[position]
+            val txt = holder.view.findViewById<TextView>(R.id.txtRomName)
+            txt.text = file.name?.replace(".smc", "")?.replace(".sfc", "")
+            holder.view.setOnClickListener { 
+                onClick(file.uri, file.name ?: "game")
+            }
+        }
+
+        override fun getItemCount() = list.size
     }
 }
