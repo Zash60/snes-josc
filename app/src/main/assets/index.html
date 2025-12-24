@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SNES Pro</title>
+    <title>SNES Pro Fixed</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; touch-action: none; user-select: none; -webkit-user-select: none; }
         body, html { width: 100%; height: 100%; background-color: #000; overflow: hidden; position: fixed; }
@@ -21,7 +21,7 @@
             top: 20%;
             left: 50%;
             transform: translateX(-50%);
-            background-color: rgba(30, 30, 30, 0.9);
+            background-color: rgba(30, 30, 30, 0.95);
             color: #fff;
             padding: 12px 24px;
             border-radius: 25px;
@@ -33,6 +33,7 @@
             pointer-events: none;
             z-index: 9999;
             border: 1px solid #777;
+            text-align: center;
         }
 
         #fps-overlay {
@@ -52,7 +53,7 @@
 
 <script>
     let nostalgistInstance = null;
-    let currentRomName = "unknown_game"; // Para salvar o arquivo com o nome certo
+    let currentRomName = "game"; 
 
     const canvas = document.getElementById('game-canvas');
     const toastElement = document.getElementById('game-toast');
@@ -63,6 +64,7 @@
     function showToast(msg, isError = false) {
         toastElement.innerText = msg;
         toastElement.style.color = isError ? "#FF5555" : "#FFFFFF";
+        toastElement.style.borderColor = isError ? "#FF5555" : "#777";
         toastElement.style.opacity = "1";
         clearTimeout(toastTimeout);
         toastTimeout = setTimeout(() => { toastElement.style.opacity = "0"; }, 2500);
@@ -102,53 +104,81 @@
         canvas.dispatchEvent(evt); window.dispatchEvent(evt);
     }
 
-    // --- SAVE / LOAD (Via Android Interface) ---
-    
-    // 1. JS pede para salvar
+    // --- SAVE STATE (CORREÇÃO AQUI) ---
     async function triggerSaveState() {
         if (!nostalgistInstance) return showToast("Sem jogo!", true);
         try {
             showToast("Gerando Save...");
-            const blob = await nostalgistInstance.saveState();
             
-            // Converte Blob para Base64
+            // 1. Obtém o resultado do save
+            let result = await nostalgistInstance.saveState();
+            
+            // 2. CORREÇÃO: Verifica o tipo de dado recebido
+            let finalBlob = null;
+
+            if (result instanceof Blob) {
+                // Se já for Blob, usa direto
+                finalBlob = result;
+            } else if (result.state) {
+                // Se for um objeto { state: Blob, thumbnail: ... }
+                // Alguns cores retornam um objeto complexo
+                if (result.state instanceof Blob) {
+                    finalBlob = result.state;
+                } else {
+                    // Se o .state for Uint8Array
+                    finalBlob = new Blob([result.state]);
+                }
+            } else {
+                // Se for apenas Uint8Array (Buffer bruto)
+                finalBlob = new Blob([result]);
+            }
+
+            // 3. Converte Blob para Base64
             const reader = new FileReader();
-            reader.readAsDataURL(blob); 
+            reader.readAsDataURL(finalBlob); 
+            
             reader.onloadend = function() {
                 const base64data = reader.result;
                 // Envia para o Kotlin salvar no arquivo
                 if (window.AndroidInterface) {
                     window.AndroidInterface.saveStateToDisk(base64data, currentRomName);
                 } else {
-                    showToast("Interface Android não encontrada", true);
+                    showToast("Interface Android desconectada", true);
                 }
-            }
+            };
+            
+            reader.onerror = function() {
+                showToast("Erro ao ler Blob", true);
+            };
+
         } catch (e) {
-            showToast("Erro JS Save: " + e.message, true);
+            console.error(e);
+            showToast("Erro JS: " + e.message, true);
         }
     }
 
-    // 2. JS pede para carregar
+    // --- LOAD STATE ---
     function triggerLoadState() {
         if (!nostalgistInstance) return showToast("Sem jogo!", true);
         showToast("Buscando Save...");
         if (window.AndroidInterface) {
             window.AndroidInterface.loadStateFromDisk(currentRomName);
+        } else {
+             showToast("Interface Android desconectada", true);
         }
     }
 
-    // 3. Android devolve o save (chamado pelo Kotlin)
+    // Chamado pelo Kotlin quando o arquivo é lido
     async function receiveStateFromAndroid(base64Data) {
         try {
             showToast("Aplicando Save...");
-            // Converte Base64 para Blob
             const res = await fetch("data:application/octet-stream;base64," + base64Data);
             const blob = await res.blob();
             
             await nostalgistInstance.loadState(blob);
             showToast("Carregado com Sucesso!");
         } catch (e) {
-            showToast("Save corrompido ou erro", true);
+            showToast("Save inválido ou corrompido", true);
             console.error(e);
         }
     }
@@ -158,7 +188,8 @@
         try {
             if (nostalgistInstance) { await nostalgistInstance.exit(); nostalgistInstance = null; }
             
-            currentRomName = fileName; // Guarda o nome para o save
+            // Limpa extensão do nome para usar no save
+            currentRomName = fileName.replace(/\.[^/.]+$/, "");
             
             const bin = atob(romBase64);
             const bytes = new Uint8Array(bin.length);
@@ -180,11 +211,11 @@
                 }
             });
             setTimeout(() => canvas.focus(), 500);
-            showToast("Jogo Iniciado: " + fileName);
+            showToast("Jogo Iniciado!");
         } catch (e) {
             showToast("Erro: " + e.message, true);
         }
     }
 </script>
 </body>
-</html>
+    </html>
