@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#121212"
+    android:padding="16dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="SNES COLLECTION"
+        android:textColor="#FFFFFF"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginBottom="20dp"/>
+
+    <!-- Controles do Menu -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_marginBottom="10dp">
+
+        <Button
+            android:id="@+id/btnSelectFolder"
+            android:layout_width="match_parent"
+            android:layout_height="60dp"
+            android:text="SELECIONAR PASTA DE ROMS"
+            android:backgroundTint="#6200EE"
+            android:textStyle="bold"/>
+
+        <com.google.android.material.switchmaterial.SwitchMaterial
+            android:id="@+id/switchCrt"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Efeito CRT (Scanlines)"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:checked="false"
+            android:layout_marginTop="10dp"/>
+    </LinearLayout>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Lista de Jogos:"
+        android:textColor="#AAAAAA"
+        android:layout_marginTop="10dp"
+        android:layout_marginBottom="5dp"/>
+
+    <!-- Galeria de Jogos -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerRoms"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scrollbars="vertical" />
+
+</LinearLayout>
