@@ -6,11 +6,13 @@
     android:layout_height="match_parent"
     android:background="#000000">
 
+    <!-- TELA DO JOGO -->
     <WebView
         android:id="@+id/webView"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
+    <!-- OVERLAY CRT (Scanlines) -->
     <View
         android:id="@+id/scanlineOverlay"
         android:layout_width="match_parent"
@@ -22,6 +24,50 @@
         android:clickable="false"
         android:focusable="false" />
 
+    <!-- === PAINEL TAS (NOVO) === -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="16dp"
+        android:layout_marginStart="16dp"
+        android:elevation="10dp"
+        android:background="#80000000"
+        android:padding="5dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
+
+        <!-- REC: Grava inputs e Rerecording -->
+        <Button
+            android:id="@+id/btnTasRec"
+            android:layout_width="50dp"
+            android:layout_height="35dp"
+            android:text="REC"
+            android:textSize="10sp"
+            android:backgroundTint="#FF0000"
+            android:layout_marginEnd="4dp"/>
+
+        <!-- PLAY: Reproduz a fita atual -->
+        <Button
+            android:id="@+id/btnTasPlay"
+            android:layout_width="50dp"
+            android:layout_height="35dp"
+            android:text="PLAY"
+            android:textSize="10sp"
+            android:backgroundTint="#00FF00"
+            android:layout_marginEnd="4dp"/>
+
+        <!-- STEP: Avança 1 frame (Pausa/Frame Advance) -->
+        <Button
+            android:id="@+id/btnTasStep"
+            android:layout_width="50dp"
+            android:layout_height="35dp"
+            android:text="STEP"
+            android:textSize="10sp"
+            android:backgroundTint="#0000FF"/>
+    </LinearLayout>
+
+    <!-- === SAVE / LOAD (Topo Centro) === -->
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -31,6 +77,7 @@
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
+
         <Button
             android:id="@+id/btnSaveState"
             android:layout_width="70dp"
@@ -39,6 +86,7 @@
             android:textSize="10sp"
             android:backgroundTint="#AA0000FF"
             android:layout_marginEnd="8dp"/>
+
         <Button
             android:id="@+id/btnLoadState"
             android:layout_width="70dp"
@@ -48,6 +96,7 @@
             android:backgroundTint="#AA00AA00"/>
     </LinearLayout>
 
+    <!-- === OMBROS (L e R) === -->
     <Button
         android:id="@+id/btnL"
         android:layout_width="80dp"
@@ -55,7 +104,7 @@
         android:text="L"
         android:backgroundTint="#AA404040"
         android:layout_marginStart="16dp"
-        android:layout_marginTop="16dp"
+        android:layout_marginTop="60dp" 
         android:elevation="10dp"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
@@ -72,6 +121,7 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
+    <!-- === D-PAD DESLIZANTE === -->
     <RelativeLayout
         android:id="@+id/dpadContainer"
         android:layout_width="180dp"
@@ -90,6 +140,7 @@
         <View android:layout_width="60dp" android:layout_height="60dp" android:layout_centerInParent="true" />
     </RelativeLayout>
 
+    <!-- === MENU CENTRAL === -->
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -101,24 +152,12 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
         
-        <Button
-            android:id="@+id/btnSelect"
-            android:layout_width="70dp"
-            android:layout_height="35dp"
-            android:text="SEL"
-            android:textSize="10sp"
-            android:backgroundTint="#90505050"
-            android:layout_marginEnd="15dp"/>
-            
-        <Button
-            android:id="@+id/btnStart"
-            android:layout_width="70dp"
-            android:layout_height="35dp"
-            android:text="STA"
-            android:textSize="10sp"
-            android:backgroundTint="#90505050"/>
+        <Button android:id="@+id/btnSelect" android:layout_width="70dp" android:layout_height="35dp" android:text="SEL" android:textSize="10sp" android:backgroundTint="#90505050" android:layout_marginEnd="15dp"/>
+        <com.google.android.material.floatingactionbutton.FloatingActionButton android:id="@+id/fabLoadRom" android:layout_width="wrap_content" android:layout_height="wrap_content" app:fabSize="mini" android:contentDescription="Load" android:src="@android:drawable/ic_menu_add" android:backgroundTint="#AA6200EE" app:tint="#FFFFFF" app:borderWidth="0dp" android:layout_marginEnd="15dp"/>
+        <Button android:id="@+id/btnStart" android:layout_width="70dp" android:layout_height="35dp" android:text="STA" android:textSize="10sp" android:backgroundTint="#90505050"/>
     </LinearLayout>
 
+    <!-- === BOTÕES DE AÇÃO + TURBO === -->
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="280dp"
         android:layout_height="200dp"
@@ -128,21 +167,11 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
-        <Button
-            android:id="@+id/btnTurbo"
-            android:layout_width="70dp"
-            android:layout_height="60dp"
-            android:text="⏩"
-            android:textSize="20sp"
-            android:backgroundTint="#AAFF8800"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            android:layout_marginBottom="10dp"/>
-
+        <Button android:id="@+id/btnTurbo" android:layout_width="70dp" android:layout_height="60dp" android:text="⏩" android:textSize="20sp" android:backgroundTint="#AAFF8800" app:layout_constraintBottom_toBottomOf="parent" app:layout_constraintStart_toStartOf="parent" android:layout_marginBottom="10dp"/>
         <Button android:id="@+id/btnX" android:layout_width="60dp" android:layout_height="60dp" android:text="X" android:backgroundTint="#90FF0000" android:layout_marginEnd="10dp" app:layout_constraintEnd_toStartOf="@+id/btnA" app:layout_constraintTop_toTopOf="parent" />
         <Button android:id="@+id/btnY" android:layout_width="60dp" android:layout_height="60dp" android:text="Y" android:backgroundTint="#9000FF00" android:layout_marginEnd="10dp" app:layout_constraintEnd_toStartOf="@+id/btnB" app:layout_constraintTop_toBottomOf="@+id/btnX" android:layout_marginTop="10dp"/>
         <Button android:id="@+id/btnA" android:layout_width="60dp" android:layout_height="60dp" android:text="A" android:backgroundTint="#900000FF" app:layout_constraintEnd_toEndOf="parent" app:layout_constraintTop_toTopOf="parent" android:layout_marginTop="30dp"/>
         <Button android:id="@+id/btnB" android:layout_width="60dp" android:layout_height="60dp" android:text="B" android:textColor="#000" android:backgroundTint="#90FFFF00" app:layout_constraintEnd_toEndOf="parent" app:layout_constraintTop_toBottomOf="@+id/btnA" android:layout_marginTop="10dp" android:layout_marginEnd="30dp"/>
-
     </androidx.constraintlayout.widget.ConstraintLayout>
+
 </androidx.constraintlayout.widget.ConstraintLayout>
