@@ -25,6 +25,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var assetLoader: WebViewAssetLoader
 
+    // Seletor de Arquivos
     private val filePickerLauncher = registerForActivityResult(
         ActivityResultContracts.GetContent()
     ) { uri -> uri?.let { loadRom(it) } }
@@ -38,7 +39,12 @@ class MainActivity : AppCompatActivity() {
         setupWebView()
         setupControls()
 
+        // Garante que o botão esteja visível ao iniciar
+        binding.fabLoadRom.visibility = View.VISIBLE
+        
+        // Ação do clique no botão
         binding.fabLoadRom.setOnClickListener {
+            // Abre o explorador de arquivos filtrando tudo (para garantir compatibilidade)
             filePickerLauncher.launch("*/*")
         }
     }
@@ -55,7 +61,7 @@ class MainActivity : AppCompatActivity() {
             settings.allowFileAccess = true
             settings.mediaPlaybackRequiresUserGesture = false
             
-            // Performance
+            // Otimizações
             clearCache(true)
             settings.cacheMode = WebSettings.LOAD_NO_CACHE 
             settings.setRenderPriority(WebSettings.RenderPriority.HIGH)
@@ -65,6 +71,7 @@ class MainActivity : AppCompatActivity() {
             isHorizontalScrollBarEnabled = false
             
             webChromeClient = WebChromeClient()
+            
             webViewClient = object : WebViewClient() {
                 override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?) 
                     = assetLoader.shouldInterceptRequest(request!!.url)
@@ -80,31 +87,27 @@ class MainActivity : AppCompatActivity() {
 
     @SuppressLint("ClickableViewAccessibility")
     private fun setupControls() {
-        // Direcionais
+        // Mapeamento dos botões (Lógica de Toque)
         mapButton(binding.btnUp, "UP")
         mapButton(binding.btnDown, "DOWN")
         mapButton(binding.btnLeft, "LEFT")
         mapButton(binding.btnRight, "RIGHT")
         
-        // Ação
         mapButton(binding.btnA, "A")
         mapButton(binding.btnB, "B")
         mapButton(binding.btnX, "X")
         mapButton(binding.btnY, "Y")
         
-        // Ombros
         mapButton(binding.btnL, "L")
         mapButton(binding.btnR, "R")
         
-        // Sistema
         mapButton(binding.btnStart, "START")
         mapButton(binding.btnSelect, "SELECT")
 
-        // Botões de Estado (Não usam MotionEvent, apenas clique simples)
+        // Botões de Sistema (Save/Load)
         binding.btnSaveState.setOnClickListener {
             binding.webView.evaluateJavascript("triggerSaveState();", null)
         }
-        
         binding.btnLoadState.setOnClickListener {
             binding.webView.evaluateJavascript("triggerLoadState();", null)
         }
@@ -128,12 +131,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun loadRom(uri: Uri) {
-        binding.fabLoadRom.visibility = View.GONE
-        Toast.makeText(this, "Processando...", Toast.LENGTH_SHORT).show()
+        // NÃO escondemos mais o botão. Ele fica visível para você trocar de jogo.
+        Toast.makeText(this, "Carregando Jogo...", Toast.LENGTH_SHORT).show()
 
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val contentResolver = applicationContext.contentResolver
+                
+                // Pega nome do arquivo (opcional, mas bom para logs)
                 var fileName = "game.sfc"
                 contentResolver.query(uri, null, null, null, null)?.use {
                     if (it.moveToFirst()) {
@@ -142,22 +147,24 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
 
+                // Lê o arquivo
                 val stream = contentResolver.openInputStream(uri)
                 val bytes = stream?.readBytes()
                 stream?.close()
 
                 if (bytes != null) {
                     val base64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
+                    
                     withContext(Dispatchers.Main) {
+                        // Envia para o WebView
                         binding.webView.evaluateJavascript("launchGame('$base64', '$fileName');") {
-                            hideSystemUI()
+                            hideSystemUI() // Garante tela cheia novamente
                         }
                     }
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(this@MainActivity, "Erro: ${e.message}", Toast.LENGTH_LONG).show()
-                    binding.fabLoadRom.visibility = View.VISIBLE
+                    Toast.makeText(this@MainActivity, "Erro ao abrir: ${e.message}", Toast.LENGTH_LONG).show()
                 }
             }
         }
