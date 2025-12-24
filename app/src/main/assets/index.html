@@ -3,52 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SNES Fullscreen Turbo</title>
+    <title>SNES 2005 Complete</title>
     <style>
-        /* CSS RESET TOTAL */
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            user-select: none;
-            -webkit-user-select: none;
-            touch-action: none;
-        }
-
-        body, html {
-            width: 100%;
-            height: 100%;
-            background-color: #000;
-            overflow: hidden;
-            position: fixed; /* Impede scroll elástico do Android */
-        }
-
-        /* CONFIGURAÇÃO PARA ESTICAR A TELA */
+        * { margin: 0; padding: 0; box-sizing: border-box; touch-action: none; }
+        body, html { width: 100%; height: 100%; background-color: #000; overflow: hidden; position: fixed; }
+        
         canvas {
             display: block;
-            width: 100vw !important;  /* Força largura total */
-            height: 100vh !important; /* Força altura total */
-            object-fit: fill;         /* Estica para preencher tudo (pode distorcer um pouco, mas preenche) */
-            
-            /* Performance Gráfica */
-            image-rendering: pixelated; 
-            image-rendering: -moz-crisp-edges;
+            width: 100vw !important;
+            height: 100vh !important;
+            object-fit: fill;
+            image-rendering: pixelated;
             image-rendering: crisp-edges;
         }
 
-        /* CONTADOR DE FPS EXTERNO */
         #fps-overlay {
             position: absolute;
-            top: 10px;
-            left: 10px;
-            color: #FFFF00; /* Amarelo */
+            top: 5px;
+            left: 5px;
+            color: #00FF00;
             font-family: monospace;
-            font-size: 20px;
+            font-size: 16px;
             font-weight: bold;
-            background: rgba(0, 0, 0, 0.6);
-            padding: 5px 10px;
-            border-radius: 5px;
-            pointer-events: none; /* O toque passa através dele */
+            background: rgba(0,0,0,0.5);
+            padding: 2px 5px;
+            border-radius: 4px;
+            pointer-events: none;
             z-index: 9999;
         }
     </style>
@@ -56,18 +36,16 @@
 </head>
 <body>
 
-<!-- Contador FPS Visível -->
 <div id="fps-overlay">FPS: 0</div>
-
-<!-- Canvas -->
 <canvas id="game-canvas" tabindex="1"></canvas>
 
 <script>
     let nostalgistInstance = null;
+    let savedStateBlob = null; // Variável para guardar o save na memória RAM
     const canvas = document.getElementById('game-canvas');
     const fpsElement = document.getElementById('fps-overlay');
 
-    // --- SISTEMA DE FPS JAVASCRIPT ---
+    // --- FPS COUNTER ---
     let frameCount = 0;
     let lastTime = performance.now();
     function loopFPS() {
@@ -80,9 +58,10 @@
         }
         requestAnimationFrame(loopFPS);
     }
-    requestAnimationFrame(loopFPS); // Inicia o contador
+    requestAnimationFrame(loopFPS);
 
-    // --- CONTROLES ---
+    // --- KEY MAPPING (Incluindo L e R) ---
+    // q = L, w = R (Padrão RetroArch Web)
     const keyMap = {
         'UP':    { code: 'ArrowUp',    key: 'ArrowUp',    keyCode: 38 },
         'DOWN':  { code: 'ArrowDown',  key: 'ArrowDown',  keyCode: 40 },
@@ -92,13 +71,17 @@
         'B':     { code: 'KeyZ',       key: 'z',          keyCode: 90 },
         'X':     { code: 'KeyS',       key: 's',          keyCode: 83 },
         'Y':     { code: 'KeyA',       key: 'a',          keyCode: 65 },
+        'L':     { code: 'KeyQ',       key: 'q',          keyCode: 81 }, // NOVO
+        'R':     { code: 'KeyW',       key: 'w',          keyCode: 87 }, // NOVO
         'START': { code: 'Enter',      key: 'Enter',      keyCode: 13 },
         'SELECT':{ code: 'ShiftRight', key: 'Shift',      keyCode: 16 }
     };
 
+    // --- INPUT HANDLER ---
     function androidButtonEvent(btnName, isDown) {
         const mapping = keyMap[btnName];
         if (!mapping) return;
+        
         if (document.activeElement !== canvas) canvas.focus();
 
         const eventName = isDown ? 'keydown' : 'keyup';
@@ -110,12 +93,44 @@
         window.dispatchEvent(event);
     }
 
-    // --- INICIALIZAÇÃO OTIMIZADA ---
+    // --- SAVE / LOAD STATE FUNCTIONS ---
+    async function triggerSaveState() {
+        if (!nostalgistInstance) return;
+        try {
+            console.log("Saving state...");
+            // Salva o estado em um Blob na memória RAM
+            const state = await nostalgistInstance.saveState();
+            savedStateBlob = state;
+            alert("Estado Salvo na Memória!");
+        } catch (e) {
+            console.error(e);
+            alert("Erro ao salvar: " + e.message);
+        }
+    }
+
+    async function triggerLoadState() {
+        if (!nostalgistInstance) return;
+        if (!savedStateBlob) {
+            alert("Nenhum estado salvo encontrado!");
+            return;
+        }
+        try {
+            console.log("Loading state...");
+            await nostalgistInstance.loadState(savedStateBlob);
+            console.log("State loaded.");
+        } catch (e) {
+            console.error(e);
+            alert("Erro ao carregar: " + e.message);
+        }
+    }
+
+    // --- LAUNCH GAME ---
     async function launchGame(base64Rom, fileName) {
         try {
             if (nostalgistInstance) {
                 await nostalgistInstance.exit();
                 nostalgistInstance = null;
+                savedStateBlob = null; // Reseta save ao mudar de jogo
             }
 
             const binaryString = atob(base64Rom);
@@ -126,41 +141,35 @@
             }
             const romFile = new File([bytes], fileName);
 
+            // INICIANDO COM CORE 2005 (Como solicitado)
             nostalgistInstance = await Nostalgist.launch({
                 element: canvas,
                 
-                // PERFORMANCE: Use o core 2002.
-                core: 'snes9x2002', 
+                // Certifique-se de ter 'snes9x2005_libretro.js' e '.wasm'
+                core: 'snes9x2005', 
                 
                 rom: romFile,
                 resolveCoreJs: (core) => `/assets/cores/${core}_libretro.js`,
                 resolveCoreWasm: (core) => `/assets/cores/${core}_libretro.wasm`,
 
-                // CONFIGURAÇÃO DO RETROARCH (Tela Cheia + Velocidade)
                 retroarchConfig: {
-                    // CORREÇÃO TELA PEQUENA:
-                    video_scale_integer: "false", // Permite escalar sem ser números inteiros
-                    video_aspect_ratio_auto: "true", // Tenta preencher a tela
-                    video_smooth: "false", // Pixels nítidos (melhora performance)
+                    video_scale_integer: "false",
+                    video_aspect_ratio_auto: "true",
+                    video_smooth: "false", // Pixels nítidos
                     
-                    // VELOCIDADE DE ÁUDIO (Evita engasgos)
-                    audio_latency: "96", 
-                    
-                    // VELOCIDADE DE VÍDEO
+                    // Configurações de latência moderada para 2005
+                    audio_latency: "128", 
                     video_vsync: "true",
                     video_threaded: "true"
                 }
             });
 
-            // Força o CSS novamente após o emulador carregar (pois ele tenta sobrescrever)
             setTimeout(() => {
-                canvas.style.width = '100vw';
-                canvas.style.height = '100vh';
                 canvas.focus();
             }, 1000);
 
         } catch (e) {
-            alert("Erro: " + e.message);
+            alert("Erro Fatal: " + e.message);
         }
     }
 </script>
