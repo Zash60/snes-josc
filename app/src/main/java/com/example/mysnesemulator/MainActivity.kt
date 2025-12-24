@@ -19,95 +19,81 @@ import com.example.mysnesemulator.databinding.ActivityMainBinding
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.InputStream
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var assetLoader: WebViewAssetLoader
 
-    // Seletor de Arquivos
     private val filePickerLauncher = registerForActivityResult(
         ActivityResultContracts.GetContent()
-    ) { uri ->
-        uri?.let { loadRom(it) }
-    }
+    ) { uri -> uri?.let { loadRom(it) } }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Força tela cheia (Immersive Mode)
         hideSystemUI()
-
         setupWebView()
         setupControls()
 
         binding.fabLoadRom.setOnClickListener {
-            // Abre seletor de arquivos
             filePickerLauncher.launch("*/*")
         }
     }
 
     @SuppressLint("SetJavaScriptEnabled", "ClickableViewAccessibility")
     private fun setupWebView() {
-        // Configura AssetLoader para ler arquivos da pasta assets/
         assetLoader = WebViewAssetLoader.Builder()
             .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
             .build()
 
         binding.webView.apply {
-            // Configurações críticas para WebGL e WASM
+            // WEBVIEW PERFORMANCE SETTINGS
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
             settings.allowFileAccess = true
-            settings.mediaPlaybackRequiresUserGesture = false
             
-            // PERFORMANCE MÁXIMA
-            settings.cacheMode = WebSettings.LOAD_NO_CACHE
-            settings.setRenderPriority(WebSettings.RenderPriority.HIGH) // Prioridade Alta para CPU/GPU
-            setLayerType(View.LAYER_TYPE_HARDWARE, null) // Garante uso da GPU
+            // IMPORTANTE: Limpa cache para garantir que o novo HTML seja usado
+            clearCache(true)
+            settings.cacheMode = WebSettings.LOAD_NO_CACHE 
+            
+            // Renderização Hardware Máxima
+            settings.setRenderPriority(WebSettings.RenderPriority.HIGH)
+            setLayerType(View.LAYER_TYPE_HARDWARE, null)
+            
+            // Remove scrollbars
+            isVerticalScrollBarEnabled = false
+            isHorizontalScrollBarEnabled = false
+            
+            settings.mediaPlaybackRequiresUserGesture = false
 
-            // Cliente Chrome para logs
-            webChromeClient = object : WebChromeClient() {
-                override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
-                    android.util.Log.d("WebViewConsole", consoleMessage?.message() ?: "")
-                    return true
-                }
-            }
-
-            // Cliente WebView para interceptação local
+            webChromeClient = WebChromeClient()
+            
             webViewClient = object : WebViewClient() {
-                override fun shouldInterceptRequest(
-                    view: WebView?,
-                    request: WebResourceRequest?
-                ) = assetLoader.shouldInterceptRequest(request!!.url)
+                override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?) 
+                    = assetLoader.shouldInterceptRequest(request!!.url)
 
                 override fun onPageFinished(view: WebView?, url: String?) {
-                    super.onPageFinished(view, url)
-                    hideSystemUI() // Garante tela cheia após carregar
+                    hideSystemUI() // Garante tela cheia
                 }
             }
 
-            // Carrega o arquivo HTML local
             loadUrl("https://appassets.androidplatform.net/assets/index.html")
         }
     }
 
     @SuppressLint("ClickableViewAccessibility")
     private fun setupControls() {
-        // Mapeia botões da UI para strings de comando
         mapButton(binding.btnUp, "UP")
         mapButton(binding.btnDown, "DOWN")
         mapButton(binding.btnLeft, "LEFT")
         mapButton(binding.btnRight, "RIGHT")
-        
         mapButton(binding.btnA, "A")
         mapButton(binding.btnB, "B")
         mapButton(binding.btnX, "X")
         mapButton(binding.btnY, "Y")
-        
         mapButton(binding.btnStart, "START")
         mapButton(binding.btnSelect, "SELECT")
     }
@@ -118,48 +104,39 @@ class MainActivity : AppCompatActivity() {
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
                     v.isPressed = true
-                    sendInputToJs(keyName, true)
+                    // Executa diretamente (sem delays)
+                    binding.webView.evaluateJavascript("androidButtonEvent('$keyName', true);", null)
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     v.isPressed = false
-                    sendInputToJs(keyName, false)
+                    binding.webView.evaluateJavascript("androidButtonEvent('$keyName', false);", null)
                 }
             }
-            true // Consome o evento
+            true
         }
-    }
-
-    private fun sendInputToJs(key: String, isDown: Boolean) {
-        // Executa JS diretamente na WebView
-        binding.webView.evaluateJavascript("androidButtonEvent('$key', $isDown);", null)
     }
 
     private fun loadRom(uri: Uri) {
         binding.fabLoadRom.isEnabled = false
-        Toast.makeText(this, "Processando ROM...", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Carregando...", Toast.LENGTH_SHORT).show()
 
-        // Executa leitura pesada em Thread separada (IO)
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val contentResolver = applicationContext.contentResolver
-                
                 var fileName = "game.sfc"
-                contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-                    if (cursor.moveToFirst()) {
-                        val index = cursor.getColumnIndex("_display_name")
-                        if (index != -1) fileName = cursor.getString(index)
+                contentResolver.query(uri, null, null, null, null)?.use {
+                    if (it.moveToFirst()) {
+                        val idx = it.getColumnIndex("_display_name")
+                        if (idx != -1) fileName = it.getString(idx)
                     }
                 }
 
-                val inputStream: InputStream? = contentResolver.openInputStream(uri)
-                val bytes = inputStream?.readBytes()
-                inputStream?.close()
+                val stream = contentResolver.openInputStream(uri)
+                val bytes = stream?.readBytes()
+                stream?.close()
 
                 if (bytes != null) {
-                    // Converte para Base64
                     val base64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
-                    
-                    // Volta para Thread Principal para atualizar UI e JS
                     withContext(Dispatchers.Main) {
                         binding.webView.evaluateJavascript("launchGame('$base64', '$fileName');") {
                             binding.fabLoadRom.isEnabled = true
@@ -168,7 +145,6 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 withContext(Dispatchers.Main) {
                     Toast.makeText(this@MainActivity, "Erro: ${e.message}", Toast.LENGTH_LONG).show()
                     binding.fabLoadRom.isEnabled = true
@@ -177,7 +153,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // Função para esconder barras de navegação (Android 11+ e antigos)
     private fun hideSystemUI() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             window.insetsController?.let {
