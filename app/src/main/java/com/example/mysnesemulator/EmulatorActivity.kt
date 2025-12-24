@@ -2,11 +2,14 @@ package com.example.mysnesemulator
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.net.Uri
+import android.net.Uri // Necessário para carregar ROMs
+import android.os.Build // Necessário para verificar versão do Android
 import android.os.Bundle
 import android.util.Base64
 import android.view.MotionEvent
 import android.view.View
+import android.view.WindowInsets // Necessário para Tela Cheia (Android 11+)
+import android.view.WindowInsetsController // Necessário para Tela Cheia (Android 11+)
 import android.webkit.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
@@ -24,7 +27,9 @@ class EmulatorActivity : AppCompatActivity() {
     private lateinit var assetLoader: WebViewAssetLoader
     private var isCrtEnabled = false
 
+    // Interface para comunicação JS <-> Android
     inner class WebAppInterface(private val context: Context) {
+        
         @JavascriptInterface
         fun saveStateToDisk(base64Data: String, fileName: String) {
             try {
@@ -54,11 +59,9 @@ class EmulatorActivity : AppCompatActivity() {
             }
         }
         
-        // Chamado pelo JS quando o emulador termina de carregar
         @JavascriptInterface
         fun onGameLoaded() {
             runOnUiThread {
-                // Aplica o CRT se estiver ativado
                 if (isCrtEnabled) {
                     binding.webView.evaluateJavascript("setScanlines(true);", null)
                 }
@@ -75,10 +78,10 @@ class EmulatorActivity : AppCompatActivity() {
         setupWebView()
         setupControls()
 
-        // Pega a configuração do Menu Principal
+        // Pega configurações vindas do Menu
         isCrtEnabled = intent.getBooleanExtra("CRT_MODE", false)
         
-        // Se a View do XML ainda existir, esconda-a, pois usaremos CSS
+        // Garante que a View XML esteja oculta (usaremos CSS)
         binding.scanlineOverlay.visibility = View.GONE
 
         val romUri = intent.data
@@ -135,7 +138,7 @@ class EmulatorActivity : AppCompatActivity() {
         mapButton(binding.btnStart, "START")
         mapButton(binding.btnSelect, "SELECT")
 
-        // Botão Turbo atualizado: Envia "TURBO" para o JS
+        // Botão Turbo: Envia comando "TURBO" (Espaço)
         mapButton(binding.btnTurbo, "TURBO")
 
         binding.btnSaveState.setOnClickListener { binding.webView.evaluateJavascript("triggerSaveState();", null) }
