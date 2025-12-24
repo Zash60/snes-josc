@@ -66,9 +66,9 @@
                 core: 'snes9x',
                 rom: romFile,
                 
-                // Caminhos locais via assetLoader
-                resolveCoreJs: (core) => `/assets/cores/${core}.js`,
-                resolveCoreWasm: (core) => `/assets/cores/${core}.wasm`,
+                // Caminhos locais via assetLoader (usando nomes exatos dos arquivos extraídos)
+                resolveCoreJs: (core) => `/assets/cores/${core}_libretro.js`,
+                resolveCoreWasm: (core) => `/assets/cores/${core}_libretro.wasm`,
             });
             
             console.log("Emulador iniciado com sucesso!");
