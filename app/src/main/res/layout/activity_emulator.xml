@@ -6,13 +6,11 @@
     android:layout_height="match_parent"
     android:background="#000000">
 
-    <!-- TELA DO JOGO (Fundo) -->
     <WebView
         android:id="@+id/webView"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
-    <!-- === EFEITO CRT / SCANLINES (Adicionado) === -->
     <View
         android:id="@+id/scanlineOverlay"
         android:layout_width="match_parent"
@@ -24,7 +22,6 @@
         android:clickable="false"
         android:focusable="false" />
 
-    <!-- === SAVE / LOAD (Topo Centro) === -->
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -34,7 +31,6 @@
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
-
         <Button
             android:id="@+id/btnSaveState"
             android:layout_width="70dp"
@@ -43,7 +39,6 @@
             android:textSize="10sp"
             android:backgroundTint="#AA0000FF"
             android:layout_marginEnd="8dp"/>
-
         <Button
             android:id="@+id/btnLoadState"
             android:layout_width="70dp"
@@ -53,7 +48,6 @@
             android:backgroundTint="#AA00AA00"/>
     </LinearLayout>
 
-    <!-- === OMBROS (L e R) === -->
     <Button
         android:id="@+id/btnL"
         android:layout_width="80dp"
@@ -78,7 +72,6 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <!-- === D-PAD DESLIZANTE === -->
     <RelativeLayout
         android:id="@+id/dpadContainer"
         android:layout_width="180dp"
@@ -90,7 +83,6 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent">
 
-        <!-- Botões Visuais (Unicode corrigido) -->
         <Button android:id="@+id/btnUp" android:layout_width="60dp" android:layout_height="60dp" android:text="▲" android:backgroundTint="#80FFFFFF" android:textColor="#000" android:clickable="false" android:focusable="false" android:layout_alignParentTop="true" android:layout_centerHorizontal="true" />
         <Button android:id="@+id/btnDown" android:layout_width="60dp" android:layout_height="60dp" android:text="▼" android:backgroundTint="#80FFFFFF" android:textColor="#000" android:clickable="false" android:focusable="false" android:layout_alignParentBottom="true" android:layout_centerHorizontal="true" />
         <Button android:id="@+id/btnLeft" android:layout_width="60dp" android:layout_height="60dp" android:text="◄" android:backgroundTint="#80FFFFFF" android:textColor="#000" android:clickable="false" android:focusable="false" android:layout_alignParentStart="true" android:layout_centerVertical="true" />
@@ -98,7 +90,6 @@
         <View android:layout_width="60dp" android:layout_height="60dp" android:layout_centerInParent="true" />
     </RelativeLayout>
 
-    <!-- === MENU CENTRAL === -->
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -118,19 +109,6 @@
             android:textSize="10sp"
             android:backgroundTint="#90505050"
             android:layout_marginEnd="15dp"/>
-
-        <!-- Mantive o botão + aqui também, caso queira carregar sem sair do jogo -->
-        <com.google.android.material.floatingactionbutton.FloatingActionButton
-            android:id="@+id/fabLoadRom"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            app:fabSize="mini" 
-            android:contentDescription="Load"
-            android:src="@android:drawable/ic_menu_add"
-            android:backgroundTint="#AA6200EE"
-            app:tint="#FFFFFF"
-            app:borderWidth="0dp"
-            android:layout_marginEnd="15dp"/>
             
         <Button
             android:id="@+id/btnStart"
@@ -141,7 +119,6 @@
             android:backgroundTint="#90505050"/>
     </LinearLayout>
 
-    <!-- === BOTÕES DE AÇÃO + TURBO (Direita) === -->
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="280dp"
         android:layout_height="200dp"
@@ -151,7 +128,6 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
-        <!-- BOTÃO TURBO (Adicionado) -->
         <Button
             android:id="@+id/btnTurbo"
             android:layout_width="70dp"
@@ -163,12 +139,10 @@
             app:layout_constraintStart_toStartOf="parent"
             android:layout_marginBottom="10dp"/>
 
-        <!-- Botões ABXY -->
         <Button android:id="@+id/btnX" android:layout_width="60dp" android:layout_height="60dp" android:text="X" android:backgroundTint="#90FF0000" android:layout_marginEnd="10dp" app:layout_constraintEnd_toStartOf="@+id/btnA" app:layout_constraintTop_toTopOf="parent" />
         <Button android:id="@+id/btnY" android:layout_width="60dp" android:layout_height="60dp" android:text="Y" android:backgroundTint="#9000FF00" android:layout_marginEnd="10dp" app:layout_constraintEnd_toStartOf="@+id/btnB" app:layout_constraintTop_toBottomOf="@+id/btnX" android:layout_marginTop="10dp"/>
         <Button android:id="@+id/btnA" android:layout_width="60dp" android:layout_height="60dp" android:text="A" android:backgroundTint="#900000FF" app:layout_constraintEnd_toEndOf="parent" app:layout_constraintTop_toTopOf="parent" android:layout_marginTop="30dp"/>
         <Button android:id="@+id/btnB" android:layout_width="60dp" android:layout_height="60dp" android:text="B" android:textColor="#000" android:backgroundTint="#90FFFF00" app:layout_constraintEnd_toEndOf="parent" app:layout_constraintTop_toBottomOf="@+id/btnA" android:layout_marginTop="10dp" android:layout_marginEnd="30dp"/>
 
     </androidx.constraintlayout.widget.ConstraintLayout>
-
 </androidx.constraintlayout.widget.ConstraintLayout>
