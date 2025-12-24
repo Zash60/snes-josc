@@ -1,234 +1,60 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout 
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#000000">
+    android:orientation="vertical"
+    android:background="#121212"
+    android:padding="16dp">
 
-    <!-- TELA DO JOGO (Fundo) -->
-    <WebView
-        android:id="@+id/webView"
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="SNES COLLECTION"
+        android:textColor="#FFFFFF"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginBottom="20dp"/>
+
+    <!-- Controles do Menu -->
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
-
-    <!-- === SAVE / LOAD (Topo Centro - Pequenos) === -->
-    <LinearLayout
-        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:layout_marginTop="8dp"
-        android:elevation="10dp"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
+        android:orientation="vertical"
+        android:layout_marginBottom="10dp">
 
         <Button
-            android:id="@+id/btnSaveState"
-            android:layout_width="70dp"
-            android:layout_height="35dp"
-            android:text="SAVE"
-            android:textSize="10sp"
-            android:backgroundTint="#AA0000FF"
-            android:layout_marginEnd="8dp"/>
-
-        <Button
-            android:id="@+id/btnLoadState"
-            android:layout_width="70dp"
-            android:layout_height="35dp"
-            android:text="LOAD"
-            android:textSize="10sp"
-            android:backgroundTint="#AA00AA00"/>
-    </LinearLayout>
-
-    <!-- === OMBROS (L e R) === -->
-    <Button
-        android:id="@+id/btnL"
-        android:layout_width="80dp"
-        android:layout_height="50dp"
-        android:text="L"
-        android:backgroundTint="#AA404040"
-        android:layout_marginStart="16dp"
-        android:layout_marginTop="16dp"
-        android:elevation="10dp"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
-
-    <Button
-        android:id="@+id/btnR"
-        android:layout_width="80dp"
-        android:layout_height="50dp"
-        android:text="R"
-        android:backgroundTint="#AA404040"
-        android:layout_marginEnd="16dp"
-        android:layout_marginTop="16dp"
-        android:elevation="10dp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
-
-    <!-- === D-PAD DESLIZANTE (Área de Toque Única) === -->
-    <RelativeLayout
-        android:id="@+id/dpadContainer"
-        android:layout_width="180dp"
-        android:layout_height="180dp"
-        android:layout_marginStart="16dp"
-        android:layout_marginBottom="16dp"
-        android:background="@android:color/transparent"
-        android:elevation="10dp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent">
-
-        <!-- Botões Visuais (Não clicáveis individualmente) -->
-        <Button
-            android:id="@+id/btnUp"
-            android:layout_width="60dp"
+            android:id="@+id/btnSelectFolder"
+            android:layout_width="match_parent"
             android:layout_height="60dp"
-            android:text="▲"
-            android:backgroundTint="#80FFFFFF"
-            android:textColor="#000"
-            android:clickable="false" 
-            android:focusable="false"
-            android:layout_alignParentTop="true"
-            android:layout_centerHorizontal="true" />
+            android:text="SELECIONAR PASTA DE ROMS"
+            android:backgroundTint="#6200EE"
+            android:textStyle="bold"/>
 
-        <Button
-            android:id="@+id/btnDown"
-            android:layout_width="60dp"
-            android:layout_height="60dp"
-            android:text="▼"
-            android:backgroundTint="#80FFFFFF"
-            android:textColor="#000"
-            android:clickable="false"
-            android:focusable="false"
-            android:layout_alignParentBottom="true"
-            android:layout_centerHorizontal="true" />
-
-        <Button
-            android:id="@+id/btnLeft"
-            android:layout_width="60dp"
-            android:layout_height="60dp"
-            android:text="◄"
-            android:backgroundTint="#80FFFFFF"
-            android:textColor="#000"
-            android:clickable="false"
-            android:focusable="false"
-            android:layout_alignParentStart="true"
-            android:layout_centerVertical="true" />
-
-        <Button
-            android:id="@+id/btnRight"
-            android:layout_width="60dp"
-            android:layout_height="60dp"
-            android:text="►"
-            android:backgroundTint="#80FFFFFF"
-            android:textColor="#000"
-            android:clickable="false"
-            android:focusable="false"
-            android:layout_alignParentEnd="true"
-            android:layout_centerVertical="true" />
-            
-        <!-- Centro vazio para referência -->
-        <View
-            android:layout_width="60dp"
-            android:layout_height="60dp"
-            android:layout_centerInParent="true" />
-    </RelativeLayout>
-
-
-    <!-- === MENU CENTRAL (Select, Start, Add ROM) === -->
-    <LinearLayout
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="10dp"
-        android:gravity="center"
-        android:orientation="horizontal"
-        android:elevation="10dp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
-        
-        <Button
-            android:id="@+id/btnSelect"
-            android:layout_width="70dp"
-            android:layout_height="35dp"
-            android:text="SEL"
-            android:textSize="10sp"
-            android:backgroundTint="#90505050"
-            android:layout_marginEnd="15dp"/>
-
-        <!-- BOTÃO ADICIONAR ROM (MINI) -->
-        <com.google.android.material.floatingactionbutton.FloatingActionButton
-            android:id="@+id/fabLoadRom"
-            android:layout_width="wrap_content"
+        <com.google.android.material.switchmaterial.SwitchMaterial
+            android:id="@+id/switchCrt"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            app:fabSize="mini" 
-            android:contentDescription="Load"
-            android:src="@android:drawable/ic_menu_add"
-            android:backgroundTint="#AA6200EE"
-            app:tint="#FFFFFF"
-            app:borderWidth="0dp"
-            android:layout_marginEnd="15dp"/>
-            
-        <Button
-            android:id="@+id/btnStart"
-            android:layout_width="70dp"
-            android:layout_height="35dp"
-            android:text="STA"
-            android:textSize="10sp"
-            android:backgroundTint="#90505050"/>
+            android:text="Efeito CRT (Scanlines)"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:checked="false"
+            android:layout_marginTop="10dp"/>
     </LinearLayout>
 
-    <!-- === BOTÕES DE AÇÃO (Direita) === -->
-    <androidx.constraintlayout.widget.ConstraintLayout
-        android:layout_width="190dp"
-        android:layout_height="190dp"
-        android:layout_marginEnd="10dp"
-        android:layout_marginBottom="16dp"
-        android:elevation="10dp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Lista de Jogos:"
+        android:textColor="#AAAAAA"
+        android:layout_marginTop="10dp"
+        android:layout_marginBottom="5dp"/>
 
-        <Button
-            android:id="@+id/btnX"
-            android:layout_width="60dp"
-            android:layout_height="60dp"
-            android:text="X"
-            android:backgroundTint="#90FF0000"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toTopOf="parent" />
+    <!-- Galeria de Jogos -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerRoms"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scrollbars="vertical" />
 
-        <Button
-            android:id="@+id/btnY"
-            android:layout_width="60dp"
-            android:layout_height="60dp"
-            android:text="Y"
-            android:backgroundTint="#9000FF00"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintStart_toStartOf="parent" />
-
-        <Button
-            android:id="@+id/btnA"
-            android:layout_width="60dp"
-            android:layout_height="60dp"
-            android:text="A"
-            android:backgroundTint="#900000FF"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toEndOf="parent" />
-
-        <Button
-            android:id="@+id/btnB"
-            android:layout_width="60dp"
-            android:layout_height="60dp"
-            android:text="B"
-            android:textColor="#000"
-            android:backgroundTint="#90FFFF00"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent" />
-    </androidx.constraintlayout.widget.ConstraintLayout>
-
-</androidx.constraintlayout.widget.ConstraintLayout>
+</LinearLayout>
