@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>SNES Pro</title>
     <style>
-        /* CSS Reset e Tela Cheia */
         * { margin: 0; padding: 0; box-sizing: border-box; touch-action: none; user-select: none; -webkit-user-select: none; }
         body, html { width: 100%; height: 100%; background-color: #000; overflow: hidden; position: fixed; }
         
@@ -13,37 +12,33 @@
             display: block;
             width: 100vw !important;
             height: 100vh !important;
-            object-fit: fill; /* Preenche a tela toda */
+            object-fit: fill; 
             image-rendering: pixelated;
         }
 
-        /* Notificações (Toast) */
         #game-toast {
             position: absolute;
-            top: 10%; /* Mais para cima para não tapar o jogo */
+            top: 20%;
             left: 50%;
             transform: translateX(-50%);
-            background-color: rgba(50, 50, 50, 0.9);
+            background-color: rgba(30, 30, 30, 0.9);
             color: #fff;
-            padding: 10px 20px;
-            border-radius: 20px;
-            font-family: monospace;
-            font-size: 16px;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-family: sans-serif;
             font-weight: bold;
+            font-size: 16px;
             opacity: 0;
             transition: opacity 0.3s;
             pointer-events: none;
             z-index: 9999;
-            border: 1px solid #fff;
+            border: 1px solid #777;
         }
 
         #fps-overlay {
             position: absolute;
-            top: 5px;
-            left: 5px;
-            color: #00FF00;
-            font-family: monospace;
-            font-size: 12px;
+            top: 5px; left: 5px; color: #00FF00;
+            font-family: monospace; font-size: 12px;
             pointer-events: none;
         }
     </style>
@@ -52,20 +47,22 @@
 <body>
 
 <div id="fps-overlay">FPS: 0</div>
-<div id="game-toast">Notificação</div>
+<div id="game-toast">Info</div>
 <canvas id="game-canvas" tabindex="1"></canvas>
 
 <script>
     let nostalgistInstance = null;
+    let currentRomName = "unknown_game"; // Para salvar o arquivo com o nome certo
+
     const canvas = document.getElementById('game-canvas');
     const toastElement = document.getElementById('game-toast');
     const fpsElement = document.getElementById('fps-overlay');
 
-    // --- Notificações ---
+    // --- Toast UI ---
     let toastTimeout;
     function showToast(msg, isError = false) {
         toastElement.innerText = msg;
-        toastElement.style.borderColor = isError ? "#ff5555" : "#55ff55";
+        toastElement.style.color = isError ? "#FF5555" : "#FFFFFF";
         toastElement.style.opacity = "1";
         clearTimeout(toastTimeout);
         toastTimeout = setTimeout(() => { toastElement.style.opacity = "0"; }, 2500);
@@ -80,7 +77,7 @@
     }
     requestAnimationFrame(loopFPS);
 
-    // --- Controles (Teclado Virtual) ---
+    // --- Controls ---
     const keyMap = {
         'UP': {code:'ArrowUp', key:'ArrowUp', keyCode:38},
         'DOWN': {code:'ArrowDown', key:'ArrowDown', keyCode:40},
@@ -95,7 +92,6 @@
         'START': {code:'Enter', key:'Enter', keyCode:13},
         'SELECT': {code:'ShiftRight', key:'Shift', keyCode:16}
     };
-
     function androidButtonEvent(btn, isDown) {
         const m = keyMap[btn]; if(!m) return;
         if(document.activeElement !== canvas) canvas.focus();
@@ -106,56 +102,63 @@
         canvas.dispatchEvent(evt); window.dispatchEvent(evt);
     }
 
-    // --- SAVE STATE (LocalStorage - Persistente) ---
+    // --- SAVE / LOAD (Via Android Interface) ---
+    
+    // 1. JS pede para salvar
     async function triggerSaveState() {
-        if (!nostalgistInstance) return showToast("Abra um jogo primeiro!", true);
+        if (!nostalgistInstance) return showToast("Sem jogo!", true);
         try {
-            showToast("Salvando...");
+            showToast("Gerando Save...");
             const blob = await nostalgistInstance.saveState();
             
-            // Converte Blob para Base64 para salvar no armazenamento do App
+            // Converte Blob para Base64
             const reader = new FileReader();
             reader.readAsDataURL(blob); 
             reader.onloadend = function() {
                 const base64data = reader.result;
-                try {
-                    localStorage.setItem('snes_save_state', base64data);
-                    showToast("Salvo com Sucesso!");
-                } catch (e) {
-                    showToast("Erro: Save muito grande.", true);
+                // Envia para o Kotlin salvar no arquivo
+                if (window.AndroidInterface) {
+                    window.AndroidInterface.saveStateToDisk(base64data, currentRomName);
+                } else {
+                    showToast("Interface Android não encontrada", true);
                 }
             }
         } catch (e) {
-            showToast("Erro ao salvar.", true);
-            console.error(e);
+            showToast("Erro JS Save: " + e.message, true);
         }
     }
 
-    // --- LOAD STATE (LocalStorage - Persistente) ---
-    async function triggerLoadState() {
-        if (!nostalgistInstance) return showToast("Abra um jogo primeiro!", true);
-        try {
-            const base64data = localStorage.getItem('snes_save_state');
-            if (!base64data) return showToast("Nenhum Save encontrado!", true);
+    // 2. JS pede para carregar
+    function triggerLoadState() {
+        if (!nostalgistInstance) return showToast("Sem jogo!", true);
+        showToast("Buscando Save...");
+        if (window.AndroidInterface) {
+            window.AndroidInterface.loadStateFromDisk(currentRomName);
+        }
+    }
 
-            showToast("Carregando...");
-            
-            // Converte Base64 de volta para Blob
-            const res = await fetch(base64data);
+    // 3. Android devolve o save (chamado pelo Kotlin)
+    async function receiveStateFromAndroid(base64Data) {
+        try {
+            showToast("Aplicando Save...");
+            // Converte Base64 para Blob
+            const res = await fetch("data:application/octet-stream;base64," + base64Data);
             const blob = await res.blob();
             
             await nostalgistInstance.loadState(blob);
-            showToast("Carregado!");
+            showToast("Carregado com Sucesso!");
         } catch (e) {
-            showToast("Erro ao carregar.", true);
+            showToast("Save corrompido ou erro", true);
             console.error(e);
         }
     }
 
-    // --- Iniciar Jogo ---
+    // --- Launch ---
     async function launchGame(romBase64, fileName) {
         try {
             if (nostalgistInstance) { await nostalgistInstance.exit(); nostalgistInstance = null; }
+            
+            currentRomName = fileName; // Guarda o nome para o save
             
             const bin = atob(romBase64);
             const bytes = new Uint8Array(bin.length);
@@ -164,7 +167,7 @@
 
             nostalgistInstance = await Nostalgist.launch({
                 element: canvas,
-                core: 'snes9x2005', // Mantenha os arquivos 2005 na pasta assets!
+                core: 'snes9x2005',
                 rom: file,
                 resolveCoreJs: (c) => `/assets/cores/${c}_libretro.js`,
                 resolveCoreWasm: (c) => `/assets/cores/${c}_libretro.wasm`,
@@ -177,7 +180,7 @@
                 }
             });
             setTimeout(() => canvas.focus(), 500);
-            showToast("Jogo Iniciado!");
+            showToast("Jogo Iniciado: " + fileName);
         } catch (e) {
             showToast("Erro: " + e.message, true);
         }
