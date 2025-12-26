@@ -32,6 +32,10 @@
         #tas-status {
             position: absolute; top: 5px; right: 5px; color: #FF0000; font-family: monospace; font-size: 12px; pointer-events: none; display: none;
         }
+
+        #input-display {
+            position: absolute; bottom: 5px; left: 5px; color: #FFFFFF; font-family: monospace; font-size: 10px; pointer-events: none; background: rgba(0,0,0,0.5); padding: 2px;
+        }
     </style>
     <script src="/assets/nostalgist.umd.js"></script>
 </head>
@@ -39,6 +43,7 @@
 
 <div id="fps-overlay">FPS: 0</div>
 <div id="tas-status">● REC</div>
+<div id="input-display">Inputs: </div>
 <div id="game-toast">Info</div>
 <div id="scanline-layer" class="scanlines"></div>
 <canvas id="game-canvas" tabindex="1"></canvas>
@@ -53,6 +58,12 @@
     let isRecording = false;
     let isPlaying = false;
     let isPaused = false;
+    let pressedKeys = new Set(); // Para display de inputs atuais
+
+    // --- FPS CALCULATION ---
+    let fps = 0;
+    let frameCount = 0;
+    let lastFpsUpdate = performance.now();
 
     const canvas = document.getElementById('game-canvas');
     const toastElement = document.getElementById('game-toast');
@@ -67,19 +78,35 @@
 
     // --- GAME LOOP & FRAME COUNTER ---
     function gameLoop() {
+        frameCount++;
+        let now = performance.now();
+        if (now - lastFpsUpdate >= 1000) {
+            fps = frameCount;
+            frameCount = 0;
+            lastFpsUpdate = now;
+            document.getElementById('fps-overlay').innerText = `FPS: ${fps}`;
+        }
+
+        // Update input display
+        document.getElementById('input-display').innerText = `Inputs: ${Array.from(pressedKeys).join(' ')}`;
+
         if (nostalgistInstance && !isPaused) {
             currentFrame++;
-            
+
             // Se estiver em Playback, injeta os inputs deste frame
             if (isPlaying) {
                 // Filtra inputs que acontecem neste frame exato
                 const inputsNow = tasInputs.filter(i => i.f === currentFrame);
-                inputsNow.forEach(i => simulateKey(i.k, i.d));
-                
+                inputsNow.forEach(i => {
+                    simulateKey(i.k, i.d);
+                    // Update pressedKeys for playback too
+                    if (i.d) pressedKeys.add(i.k); else pressedKeys.delete(i.k);
+                });
+
                 // Se acabou os inputs gravados, para o playback
                 if (inputsNow.length === 0 && currentFrame > tasInputs[tasInputs.length-1]?.f + 60) {
                      // Espera 1 segundo de silêncio antes de parar
-                     // isPlaying = false; 
+                     // isPlaying = false;
                 }
             }
         }
@@ -88,6 +115,13 @@
     requestAnimationFrame(gameLoop);
 
     // --- CONTROLES TAS ---
+
+    function rewind() {
+        let targetFrame = Math.max(0, currentFrame - 100);
+        tasInputs = tasInputs.filter(i => i.f <= targetFrame);
+        currentFrame = targetFrame;
+        showToast(`Rewound to frame ${currentFrame} (inputs truncated)`);
+    }
 
     function toggleRecording() {
         if (isPlaying) { isPlaying = false; showToast("Playback Parado"); }
@@ -103,35 +137,47 @@
         }
     }
 
-    function togglePlayback() {
+    async function togglePlayback() {
         if (isRecording) toggleRecording(); // Para gravação
         isPlaying = !isPlaying;
         if (isPlaying) {
-            // Reseta para o começo (Frame 0) exige Reload do jogo geralmente,
-            // mas aqui assumimos que o usuário vai dar Load State no frame 0
-            showToast("🟢 REPRODUZINDO... (Carregue o Save Frame 0)");
+            currentFrame = 0; // Start from frame 0
+            if (isPaused) {
+                await nostalgistInstance.resume();
+                isPaused = false;
+            }
+            showToast("🟢 REPRODUZINDO... (Reset game to start if needed)");
         } else {
             showToast("Playback Parado.");
+        }
+    }
+
+    async function togglePause() {
+        if (!nostalgistInstance) return;
+        if (isPaused) {
+            await nostalgistInstance.resume();
+            isPaused = false;
+            showToast("Resumido");
+        } else {
+            await nostalgistInstance.pause();
+            isPaused = true;
+            showToast("Pausado");
         }
     }
     
     async function frameAdvance() {
         if (!nostalgistInstance) return;
-        // Simula frame advance pausando e despausando rapidamente
-        // Nostalgist não tem frame advance nativo exposto facilmente,
-        // então usamos pausa.
         if (!isPaused) {
             await nostalgistInstance.pause();
             isPaused = true;
             showToast("Pausado (Modo Step)");
         } else {
-            // Avança 1 frame (aprox 16ms)
+            // Avança exatamente 1 frame
             await nostalgistInstance.resume();
-            setTimeout(async () => {
-                await nostalgistInstance.pause();
-            }, 16); 
-            // Atualiza contador manual
+            await new Promise(resolve => requestAnimationFrame(resolve));
+            await nostalgistInstance.pause();
             currentFrame++;
+            showToast(`Frame: ${currentFrame}`);
         }
     }
 
@@ -161,8 +207,15 @@
                 d: isDown
             });
         }
-        
-        // 2. Executa o Input (mesmo em playback, para permitir intervenção)
+
+        // 2. Atualiza estado dos botões pressionados
+        if (isDown) {
+            pressedKeys.add(btn);
+        } else {
+            pressedKeys.delete(btn);
+        }
+
+        // 3. Executa o Input (mesmo em playback, para permitir intervenção)
         simulateKey(btn, isDown);
     }
 
@@ -179,61 +232,40 @@
     // --- SAVE / LOAD BUNDLE (Estado + TAS) ---
 
     async function triggerTasSave() {
-        if (!nostalgistInstance) return showToast("Sem jogo!", true);
         try {
-            showToast("Salvando TAS Bundle...");
-            
-            // 1. Pega o estado binário do emulador
-            let result = await nostalgistInstance.saveState();
-            let blob = result instanceof Blob ? result : (result.state instanceof Blob ? result.state : new Blob([result.state || result]));
-            
-            // 2. Converte para Base64
-            const reader = new FileReader();
-            reader.readAsDataURL(blob); 
-            reader.onloadend = function() {
-                // 3. Cria o pacote JSON
-                const bundle = {
-                    stateData: reader.result, // O save state
-                    inputs: tasInputs,        // O histórico TAS
-                    frame: currentFrame       // O momento exato
-                };
-                
-                // 4. Envia para Android
-                if (window.AndroidInterface) {
-                    window.AndroidInterface.saveTasBundleToDisk(JSON.stringify(bundle), currentRomName);
-                }
+            showToast("Salvando TAS...");
+            const bundle = {
+                inputs: tasInputs,
+                frame: currentFrame
             };
-        } catch (e) { showToast("Erro Save: " + e.message, true); }
+            if (window.AndroidInterface) {
+                window.AndroidInterface.saveTasBundleToDisk(JSON.stringify(bundle), currentRomName);
+            }
+        } catch (e) { showToast("Erro Save TAS: " + e.message, true); }
     }
 
     // Chamado pelo Android com o JSON lido do disco
-    async function receiveTasBundle(jsonString) {
+    function receiveTasBundle(jsonString) {
         try {
-            showToast("Carregando TAS Bundle...");
+            showToast("Carregando TAS...");
             const bundle = JSON.parse(jsonString);
-            
+
             // 1. Restaura o TAS
             tasInputs = bundle.inputs;
             currentFrame = bundle.frame;
-            
+
             // LÓGICA DE RERECORDING:
             // Se estivermos gravando, cortamos qualquer input que exista APÓS este frame
-            // Isso permite corrigir erros: volta o save, e grava por cima do futuro
             if (isRecording) {
                 tasInputs = tasInputs.filter(i => i.f <= currentFrame);
                 showToast("Rerecord: Futuro apagado.");
             }
-            
-            // 2. Restaura o Emulador
-            const res = await fetch(bundle.stateData);
-            const blob = await res.blob();
-            await nostalgistInstance.loadState(blob);
-            
-            showToast("Carregado! Frame: " + currentFrame);
-            
+
+            showToast("TAS Carregado! Frame: " + currentFrame);
+
         } catch (e) {
             console.error(e);
-            showToast("Erro Bundle", true);
+            showToast("Erro TAS", true);
         }
     }
 

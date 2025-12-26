@@ -37,6 +37,16 @@
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent">
 
+        <!-- REWIND: Volta frames para rerecording -->
+        <Button
+            android:id="@+id/btnTasRewind"
+            android:layout_width="50dp"
+            android:layout_height="35dp"
+            android:text="REW"
+            android:textSize="10sp"
+            android:backgroundTint="#800080"
+            android:layout_marginEnd="4dp"/>
+
         <!-- REC: Grava inputs e Rerecording -->
         <Button
             android:id="@+id/btnTasRec"
@@ -55,6 +65,16 @@
             android:text="PLAY"
             android:textSize="10sp"
             android:backgroundTint="#00FF00"
+            android:layout_marginEnd="4dp"/>
+
+        <!-- PAUSE: Pausa/Resume o jogo -->
+        <Button
+            android:id="@+id/btnTasPause"
+            android:layout_width="50dp"
+            android:layout_height="35dp"
+            android:text="PAUSE"
+            android:textSize="10sp"
+            android:backgroundTint="#FFFF00"
             android:layout_marginEnd="4dp"/>
 
         <!-- STEP: Avança 1 frame (Pausa/Frame Advance) -->

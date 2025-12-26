@@ -137,9 +137,11 @@ class EmulatorActivity : AppCompatActivity() {
         // Botões de TAS e Save
         binding.btnSaveState.setOnClickListener { binding.webView.evaluateJavascript("triggerTasSave();", null) }
         binding.btnLoadState.setOnClickListener { binding.webView.evaluateJavascript("triggerTasLoad();", null) }
-        
+
+        binding.btnTasRewind.setOnClickListener { binding.webView.evaluateJavascript("rewind();", null) }
         binding.btnTasRec.setOnClickListener { binding.webView.evaluateJavascript("toggleRecording();", null) }
         binding.btnTasPlay.setOnClickListener { binding.webView.evaluateJavascript("togglePlayback();", null) }
+        binding.btnTasPause.setOnClickListener { binding.webView.evaluateJavascript("togglePause();", null) }
         binding.btnTasStep.setOnClickListener { binding.webView.evaluateJavascript("frameAdvance();", null) }
     }
 
