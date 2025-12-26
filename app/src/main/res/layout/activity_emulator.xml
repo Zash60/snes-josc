@@ -24,68 +24,7 @@
         android:clickable="false"
         android:focusable="false" />
 
-    <!-- === PAINEL TAS (NOVO) === -->
-    <LinearLayout
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:layout_marginTop="16dp"
-        android:layout_marginStart="16dp"
-        android:elevation="10dp"
-        android:background="#80000000"
-        android:padding="5dp"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintStart_toStartOf="parent">
 
-        <!-- REWIND: Volta frames para rerecording -->
-        <Button
-            android:id="@+id/btnTasRewind"
-            android:layout_width="50dp"
-            android:layout_height="35dp"
-            android:text="REW"
-            android:textSize="10sp"
-            android:backgroundTint="#800080"
-            android:layout_marginEnd="4dp"/>
-
-        <!-- REC: Grava inputs e Rerecording -->
-        <Button
-            android:id="@+id/btnTasRec"
-            android:layout_width="50dp"
-            android:layout_height="35dp"
-            android:text="REC"
-            android:textSize="10sp"
-            android:backgroundTint="#FF0000"
-            android:layout_marginEnd="4dp"/>
-
-        <!-- PLAY: Reproduz a fita atual -->
-        <Button
-            android:id="@+id/btnTasPlay"
-            android:layout_width="50dp"
-            android:layout_height="35dp"
-            android:text="PLAY"
-            android:textSize="10sp"
-            android:backgroundTint="#00FF00"
-            android:layout_marginEnd="4dp"/>
-
-        <!-- PAUSE: Pausa/Resume o jogo -->
-        <Button
-            android:id="@+id/btnTasPause"
-            android:layout_width="50dp"
-            android:layout_height="35dp"
-            android:text="PAUSE"
-            android:textSize="10sp"
-            android:backgroundTint="#FFFF00"
-            android:layout_marginEnd="4dp"/>
-
-        <!-- STEP: Avança 1 frame (Pausa/Frame Advance) -->
-        <Button
-            android:id="@+id/btnTasStep"
-            android:layout_width="50dp"
-            android:layout_height="35dp"
-            android:text="STEP"
-            android:textSize="10sp"
-            android:backgroundTint="#0000FF"/>
-    </LinearLayout>
 
     <!-- === SAVE / LOAD (Topo Centro) === -->
     <LinearLayout
@@ -124,7 +63,7 @@
         android:text="L"
         android:backgroundTint="#AA404040"
         android:layout_marginStart="16dp"
-        android:layout_marginTop="60dp" 
+        android:layout_marginTop="60dp"
         android:elevation="10dp"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />

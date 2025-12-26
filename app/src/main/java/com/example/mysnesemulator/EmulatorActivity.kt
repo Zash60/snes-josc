@@ -30,36 +30,34 @@ class EmulatorActivity : AppCompatActivity() {
 
     inner class WebAppInterface(private val context: Context) {
         
-        // Agora salva uma String JSON completa (Estado + Inputs TAS)
+        
         @JavascriptInterface
-        fun saveTasBundleToDisk(jsonBundle: String, fileName: String) {
+        fun saveEmulatorStateToDisk(base64State: String, fileName: String) {
             try {
-                val file = File(context.filesDir, "$fileName.tas")
-                FileOutputStream(file).use { it.write(jsonBundle.toByteArray()) }
-                runOnUiThread { binding.webView.evaluateJavascript("showToast('TAS Save Salvo!');", null) }
+                val file = File(context.filesDir, "$fileName.state")
+                FileOutputStream(file).use { it.write(Base64.decode(base64State, Base64.DEFAULT)) }
+                runOnUiThread { binding.webView.evaluateJavascript("showToast('Estado Salvo!');", null) }
             } catch (e: Exception) {
-                runOnUiThread { binding.webView.evaluateJavascript("showToast('Erro ao gravar TAS', true);", null) }
+                runOnUiThread { binding.webView.evaluateJavascript("showToast('Erro ao salvar estado', true);", null) }
             }
         }
 
         @JavascriptInterface
-        fun loadTasBundleFromDisk(fileName: String) {
+        fun loadEmulatorStateFromDisk(fileName: String) {
             try {
-                val file = File(context.filesDir, "$fileName.tas")
+                val file = File(context.filesDir, "$fileName.state")
                 if (!file.exists()) {
-                    runOnUiThread { binding.webView.evaluateJavascript("showToast('Nenhum TAS encontrado', true);", null) }
+                    runOnUiThread { binding.webView.evaluateJavascript("showToast('Nenhum estado encontrado', true);", null) }
                     return
                 }
-                val jsonString = file.readText(Charset.defaultCharset())
-                // Escapa caracteres especiais para não quebrar o JS
-                val safeJson = jsonString.replace("'", "\\'")
-                
-                runOnUiThread { binding.webView.evaluateJavascript("receiveTasBundle('$safeJson');", null) }
+                val bytes = file.readBytes()
+                val base64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
+                runOnUiThread { binding.webView.evaluateJavascript("loadStateFromBase64('$base64');", null) }
             } catch (e: Exception) {
-                runOnUiThread { binding.webView.evaluateJavascript("showToast('Erro ao ler TAS', true);", null) }
+                runOnUiThread { binding.webView.evaluateJavascript("showToast('Erro ao carregar estado', true);", null) }
             }
         }
-        
+
         @JavascriptInterface
         fun onGameLoaded() {
             runOnUiThread {
@@ -134,15 +132,11 @@ class EmulatorActivity : AppCompatActivity() {
         mapButton(binding.btnSelect, "SELECT")
         mapButton(binding.btnTurbo, "TURBO")
 
-        // Botões de TAS e Save
-        binding.btnSaveState.setOnClickListener { binding.webView.evaluateJavascript("triggerTasSave();", null) }
-        binding.btnLoadState.setOnClickListener { binding.webView.evaluateJavascript("triggerTasLoad();", null) }
+        // Save/Load State
+        binding.btnSaveState.setOnClickListener { binding.webView.evaluateJavascript("saveEmulatorState();", null) }
+        binding.btnLoadState.setOnClickListener { binding.webView.evaluateJavascript("loadEmulatorState();", null) }
 
-        binding.btnTasRewind.setOnClickListener { binding.webView.evaluateJavascript("rewind();", null) }
-        binding.btnTasRec.setOnClickListener { binding.webView.evaluateJavascript("toggleRecording();", null) }
-        binding.btnTasPlay.setOnClickListener { binding.webView.evaluateJavascript("togglePlayback();", null) }
-        binding.btnTasPause.setOnClickListener { binding.webView.evaluateJavascript("togglePause();", null) }
-        binding.btnTasStep.setOnClickListener { binding.webView.evaluateJavascript("frameAdvance();", null) }
+
     }
 
     @SuppressLint("ClickableViewAccessibility")
