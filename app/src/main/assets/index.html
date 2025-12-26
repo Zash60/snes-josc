@@ -122,6 +122,7 @@
         if (!nostalgistInstance) return;
         try {
             const state = await nostalgistInstance.saveState();
+            const blob = new Blob([state]);
             const reader = new FileReader();
             reader.onload = () => {
                 const base64 = reader.result.split(',')[1];
@@ -129,7 +130,7 @@
                     window.AndroidInterface.saveEmulatorStateToDisk(base64, currentRomName);
                 }
             };
-            reader.readAsDataURL(state);
+            reader.readAsDataURL(blob);
         } catch (e) { showToast("Erro Save State: " + e.message, true); }
     }
 
@@ -184,6 +185,7 @@
             setTimeout(() => { canvas.focus(); }, 500);
             if(window.AndroidInterface) window.AndroidInterface.onGameLoaded();
             showToast("Jogo Iniciado!");
+            setTimeout(() => { loadEmulatorState(); }, 1000);
         } catch (e) { showToast("Erro: " + e.message, true); }
     }
 </script>
