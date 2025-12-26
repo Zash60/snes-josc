@@ -127,13 +127,14 @@
         if (isPlaying) { isPlaying = false; showToast("Playback Parado"); }
         isRecording = !isRecording;
         tasStatus.style.display = isRecording ? "block" : "none";
-        
+
         if (isRecording) {
             // Se estamos no frame 0, limpa tudo. Se estamos no meio do jogo, mantemos o passado (Rerecord)
-            if (currentFrame < 100) tasInputs = []; 
+            if (currentFrame < 100) tasInputs = [];
             showToast("🔴 GRAVANDO TAS...");
         } else {
             showToast("Gravação Finalizada.");
+            triggerTasSave(); // Save TAS automatically when stopping recording
         }
     }
 
