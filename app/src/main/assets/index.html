@@ -141,6 +141,10 @@
         if (isRecording) toggleRecording(); // Para gravação
         isPlaying = !isPlaying;
         if (isPlaying) {
+            // Reset the game to initial state
+            if (nostalgistInstance) {
+                await nostalgistInstance.reset();
+            }
             currentFrame = 0; // Start from frame 0
             if (isPaused) {
                 await nostalgistInstance.resume();
